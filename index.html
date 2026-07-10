@@ -611,6 +611,40 @@ const bushSpots = [
 ];
 bushSpots.forEach(p=> boardGroup.add(makeBush(p[0], p[1], 0.85+Math.random()*0.4)));
 
+// --- extra bushes & trees dispersed further across the lawn, avoiding the dice/cards hub and the fountain ---
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const greenExclusions = [
+  {x:0, z:0, r:1.3},          // dice hub
+  {x:-1.4, z:-1.0, r:0.9},    // SORPRESA card stack
+  {x:1.4, z:1.0, r:0.9},      // ARCA card stack
+  {x:0, z:-3.3, r:1.55},      // fountain
+];
+function farFromExclusions(x, z, extraPts){
+  return greenExclusions.every(e => Math.hypot(x-e.x, z-e.z) > e.r) &&
+         (extraPts||[]).every(p => Math.hypot(x-p.x, z-p.z) > 0.5);
+}
+
+const rndBush = mulberry32(1337);
+const scatterBushSpots = [];
+{
+  const limit = centerHalf - 0.28;
+  let attempts = 0;
+  while(scatterBushSpots.length < 24 && attempts < 500){
+    attempts++;
+    const x = (rndBush()*2-1)*limit;
+    const z = (rndBush()*2-1)*limit;
+    if(farFromExclusions(x, z, scatterBushSpots)) scatterBushSpots.push({x, z});
+  }
+}
+scatterBushSpots.forEach(p=> boardGroup.add(makeBush(p.x, p.z, 0.55 + Math.random()*0.5)));
+
 // compute tile world positions/rotations (clockwise, corner-first per edge)
 const corners = [
   new THREE.Vector2( HALF,  HALF), // SALIDA corner region (edge0 start)
@@ -834,6 +868,26 @@ centerTreeSpots.forEach(p=>{
   boardGroup.add(makeTree(0.85 + Math.random()*0.4, p[0], p[1], 0.12));
 });
 
+// many more trees dispersed across the lawn, keeping clear of the dice hub, cards and fountain
+const rndTree = mulberry32(9001);
+const scatterTreeSpots = [];
+{
+  const limit = centerHalf - 0.4;
+  const avoid = scatterBushSpots.map(p=>({x:p.x, z:p.z}));
+  let attempts = 0;
+  while(scatterTreeSpots.length < 20 && attempts < 600){
+    attempts++;
+    const x = (rndTree()*2-1)*limit;
+    const z = (rndTree()*2-1)*limit;
+    if(farFromExclusions(x, z, avoid.concat(scatterTreeSpots))){
+      scatterTreeSpots.push({x, z});
+    }
+  }
+}
+scatterTreeSpots.forEach(p=>{
+  boardGroup.add(makeTree(0.7 + Math.random()*0.55, p.x, p.z, 0.1 + Math.random()*0.05));
+});
+
 /* ============================= CENTER LOGO ============================= */
 
 function makeLogoTexture(){
@@ -957,6 +1011,121 @@ const die = makeDie('#161616');
 die.scale.set(1.5,1.5,1.5);
 die.position.set(0, 0.42, 0);
 boardGroup.add(die);
+
+/* ============================= FUENTE (animated fountain) ============================= */
+
+function makeFountain(x, z, scale){
+  const g = new THREE.Group();
+  const stoneMat = new THREE.MeshStandardMaterial({color:0xd8cbaa, roughness:0.85});
+  const trimMat = new THREE.MeshStandardMaterial({color:0xcaa15a, roughness:0.45, metalness:0.35});
+  const waterMat = new THREE.MeshStandardMaterial({color:0x4fa8d8, roughness:0.12, metalness:0.05, transparent:true, opacity:0.85});
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.54*scale, 0.6*scale, 0.08*scale, 22), stoneMat);
+  base.position.y = 0.04*scale;
+  base.receiveShadow = true;
+  g.add(base);
+
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(0.52*scale, 0.52*scale, 0.15*scale, 22, 1, true), stoneMat);
+  wall.position.y = 0.08*scale + 0.075*scale;
+  wall.castShadow = true;
+  g.add(wall);
+
+  const trim = new THREE.Mesh(new THREE.TorusGeometry(0.52*scale, 0.022*scale, 8, 26), trimMat);
+  trim.rotation.x = Math.PI/2;
+  trim.position.y = 0.08*scale + 0.15*scale;
+  g.add(trim);
+
+  const waterLower = new THREE.Mesh(new THREE.CircleGeometry(0.48*scale, 26), waterMat);
+  waterLower.rotation.x = -Math.PI/2;
+  const waterLowerBaseY = 0.08*scale + 0.11*scale;
+  waterLower.position.y = waterLowerBaseY;
+  g.add(waterLower);
+
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.06*scale, 0.08*scale, 0.36*scale, 12), stoneMat);
+  column.position.y = waterLowerBaseY + 0.18*scale;
+  column.castShadow = true;
+  g.add(column);
+
+  const upperBaseY = waterLowerBaseY + 0.36*scale + 0.03*scale;
+  const upperBase = new THREE.Mesh(new THREE.CylinderGeometry(0.19*scale, 0.17*scale, 0.06*scale, 16), stoneMat);
+  upperBase.position.y = upperBaseY;
+  upperBase.castShadow = true;
+  g.add(upperBase);
+
+  const upperTrim = new THREE.Mesh(new THREE.TorusGeometry(0.19*scale, 0.016*scale, 8, 20), trimMat);
+  upperTrim.rotation.x = Math.PI/2;
+  upperTrim.position.y = upperBaseY + 0.035*scale;
+  g.add(upperTrim);
+
+  const waterUpperBaseY = upperBaseY + 0.025*scale;
+  const waterUpper = new THREE.Mesh(new THREE.CircleGeometry(0.165*scale, 16), waterMat);
+  waterUpper.rotation.x = -Math.PI/2;
+  waterUpper.position.y = waterUpperBaseY;
+  g.add(waterUpper);
+
+  const nozzleY = waterUpperBaseY + 0.05*scale;
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.018*scale, 0.018*scale, 0.08*scale, 8), trimMat);
+  nozzle.position.y = nozzleY;
+  g.add(nozzle);
+
+  g.position.set(x, 0, z);
+
+  // water spray particles: rise from the nozzle, arc outward and fall back into the basin, looping
+  const particleCount = 90;
+  const positions = new Float32Array(particleCount*3);
+  const velocities = new Array(particleCount);
+  const spawnY = nozzleY + 0.04*scale;
+  const floorY = waterUpperBaseY - 0.02*scale;
+
+  function resetDrop(i){
+    const ang = Math.random()*Math.PI*2;
+    const outward = 0.12 + Math.random()*0.22;
+    velocities[i] = {
+      vx: Math.cos(ang)*outward*scale,
+      vy: (0.95 + Math.random()*0.45)*scale,
+      vz: Math.sin(ang)*outward*scale,
+    };
+    positions[i*3] = 0;
+    positions[i*3+1] = spawnY;
+    positions[i*3+2] = 0;
+  }
+  for(let i=0;i<particleCount;i++) resetDrop(i);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const dropMat = new THREE.PointsMaterial({color:0xd7f1fb, size:0.04*scale, transparent:true, opacity:0.9, depthWrite:false});
+  const points = new THREE.Points(geo, dropMat);
+  g.add(points);
+
+  const gravity = 2.4*scale;
+  g.userData.updateWater = function(dt){
+    const arr = geo.attributes.position.array;
+    for(let i=0;i<particleCount;i++){
+      const v = velocities[i];
+      v.vy -= gravity*dt;
+      arr[i*3]   += v.vx*dt;
+      arr[i*3+1] += v.vy*dt;
+      arr[i*3+2] += v.vz*dt;
+      if(arr[i*3+1] < floorY){
+        resetDrop(i);
+        arr[i*3] = positions[i*3];
+        arr[i*3+1] = positions[i*3+1];
+        arr[i*3+2] = positions[i*3+2];
+      }
+    }
+    geo.attributes.position.needsUpdate = true;
+  };
+  g.userData.updateShimmer = function(t){
+    waterLower.position.y = waterLowerBaseY + Math.sin(t*1.3)*0.004*scale;
+    waterUpper.position.y = waterUpperBaseY + Math.sin(t*1.7+1)*0.004*scale;
+  };
+
+  return g;
+}
+
+const fountain = makeFountain(0, -3.3, 1.15);
+boardGroup.add(fountain);
+const fountains = [fountain];
 
 /* ============================= PAWNS ============================= */
 
