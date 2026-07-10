@@ -1318,4 +1318,34 @@ setTimeout(()=>{
   if(loading){ loading.style.opacity='0'; setTimeout(()=>loading.style.display='none',500); }
 }, 900);
 
+/* ============================= API PARA LA INTRO (expo.js) =============================
+   Expone solo lo necesario para que la pantalla de inicio pueda hacer un recorrido de
+   cámara cinematográfico (acercarse a fichas, ciudades, la fuente y los dados) sin tocar
+   ni duplicar la lógica del juego. No modifica el comportamiento normal: mientras nadie
+   llame a estas funciones, todo sigue igual (autoRotate sigue controlando el theta). */
+window.MonopolyScene = {
+  // mueve la cámara hacia un punto (distancia, ángulo phi, y objetivo x/z), dejando que
+  // el theta lo siga manejando el auto-giro normal para que nunca se sienta "cortado"
+  setView(dist, phi, tx, tz){
+    targetDist = dist;
+    targetPhi = phi;
+    desiredTarget.set(tx, 0, tz);
+  },
+  resetView(){
+    targetDist = DEFAULT_DIST;
+    targetPhi = DEFAULT_PHI;
+    desiredTarget.set(0, 0, 0);
+  },
+  tilePos(idx){
+    const t = tiles[((idx % 40) + 40) % 40];
+    return {x: t.x, z: t.z};
+  },
+  diePos(){
+    return {x: die.position.x, z: die.position.z};
+  },
+  fountainPos(){
+    return {x: fountain.position.x, z: fountain.position.z};
+  }
+};
+
 })();
