@@ -595,6 +595,28 @@ function makeBush(x, z, scale){
 }
 
 const centerHalf = centerSize/2;
+
+/* ---- avoid placing greenery on top of the red MONOPOLY logo band ---- */
+// the logo band is a rectangle (bw x bh out of a 1024 texture) rotated ±18deg,
+// drawn onto a plane of size centerSize*0.75. We reproduce that geometry here
+// so trees/bushes never get placed on top of the red stripe.
+const LOGO_PLANE_SIZE = centerSize*0.75;
+const LOGO_HALF_W = (0.86*LOGO_PLANE_SIZE)/2 + 0.22; // padding so trunks/foliage don't kiss the edge either
+const LOGO_HALF_H = (0.24*LOGO_PLANE_SIZE)/2 + 0.22;
+function pointInRotatedRect(x, z, angleDeg, halfW, halfH){
+  const rad = angleDeg * Math.PI/180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const lx = x*cos + z*sin;
+  const lz = -x*sin + z*cos;
+  return Math.abs(lx) <= halfW && Math.abs(lz) <= halfH;
+}
+function onLogoBand(x, z){
+  // test both rotation directions so the exclusion holds regardless of the
+  // exact screen-space orientation of the rotated logo texture
+  return pointInRotatedRect(x, z, 18, LOGO_HALF_W, LOGO_HALF_H) ||
+         pointInRotatedRect(x, z, -18, LOGO_HALF_W, LOGO_HALF_H);
+}
+
 const bushSpots = [
   [-(centerHalf-0.32), -(centerHalf-0.32)],
   [ (centerHalf-0.32), -(centerHalf-0.32)],
@@ -609,7 +631,7 @@ const bushSpots = [
   [-(centerHalf-1.5),  (centerHalf-0.65)],
   [ (centerHalf-1.5), -(centerHalf-0.65)],
 ];
-bushSpots.forEach(p=> boardGroup.add(makeBush(p[0], p[1], 0.85+Math.random()*0.4)));
+bushSpots.filter(p=> !onLogoBand(p[0],p[1])).forEach(p=> boardGroup.add(makeBush(p[0], p[1], 0.85+Math.random()*0.4)));
 
 // --- extra bushes & trees dispersed further across the lawn, avoiding the dice/cards hub and the fountain ---
 function mulberry32(seed){
@@ -628,6 +650,7 @@ const greenExclusions = [
 ];
 function farFromExclusions(x, z, extraPts){
   return greenExclusions.every(e => Math.hypot(x-e.x, z-e.z) > e.r) &&
+         !onLogoBand(x, z) &&
          (extraPts||[]).every(p => Math.hypot(x-p.x, z-p.z) > 0.5);
 }
 
@@ -864,11 +887,11 @@ const centerTreeSpots = [
   [-(centerHalf-0.32), -(centerHalf-1.7)],
   [ (centerHalf-0.32),  (centerHalf-1.7)],
 ];
-centerTreeSpots.forEach(p=>{
+centerTreeSpots.filter(p=> !onLogoBand(p[0],p[1])).forEach(p=>{
   boardGroup.add(makeTree(0.85 + Math.random()*0.4, p[0], p[1], 0.12));
 });
 
-// many more trees dispersed across the lawn, keeping clear of the dice hub, cards and fountain
+// many more trees dispersed across the lawn, keeping clear of the dice hub, cards, fountain, and the red logo band
 const rndTree = mulberry32(9001);
 const scatterTreeSpots = [];
 {
@@ -1448,12 +1471,19 @@ window.addEventListener('resize', ()=>{
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+let lastFrameTime = performance.now();
 function animate(now){
   requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - lastFrameTime)/1000);
+  lastFrameTime = now;
   if(autoRotate && !dragging){
     targetTheta += 0.0016;
   }
   if(!rolling) die.rotation.y += 0.0015;
+  fountains.forEach(f=>{
+    f.userData.updateWater(dt);
+    f.userData.updateShimmer(now/1000);
+  });
   updateCamera();
   renderer.render(scene, camera);
 }
