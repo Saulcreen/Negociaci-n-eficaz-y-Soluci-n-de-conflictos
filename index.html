@@ -32,24 +32,10 @@
 
   #top-bar{
     position:fixed; top:0; left:0; right:0;
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:flex-end;
     padding:14px 22px;
     pointer-events:none;
     z-index:10;
-  }
-  #logo-badge{
-    font-family:'Baloo 2', sans-serif;
-    font-weight:800;
-    font-size:22px;
-    color:var(--accent-cream);
-    background:var(--accent-red);
-    padding:8px 18px;
-    border-radius:10px;
-    border:3px solid var(--accent-cream);
-    box-shadow:0 4px 14px rgba(0,0,0,0.45);
-    letter-spacing:1px;
-    transform:rotate(-2deg);
-    pointer-events:auto;
   }
   #hint{
     font-size:13px;
@@ -59,6 +45,9 @@
     padding:8px 14px;
     border-radius:20px;
     opacity:0.85;
+  }
+  #hint.ui-hidden, #turn-info.ui-hidden, #dice-result.ui-hidden{
+    display:none;
   }
 
   #hud{
@@ -165,7 +154,6 @@
 <div id="canvas-wrap"></div>
 
 <div id="top-bar">
-  <div id="logo-badge">MONOPOLY 3D</div>
   <div id="hint">Arrastra para girar · rueda para zoom · "F" pantalla completa</div>
 </div>
 
@@ -173,8 +161,10 @@
 
 <div id="hud">
   <div class="panel" id="controls-panel">
-    <h3>Turno</h3>
-    <div class="players-row" id="players-row"></div>
+    <div id="turn-info">
+      <h3>Turno</h3>
+      <div class="players-row" id="players-row"></div>
+    </div>
     <button id="roll-btn">🎲 Tirar los dados</button>
     <div id="dice-result"></div>
   </div>
@@ -1225,6 +1215,18 @@ window.addEventListener('keydown', e=>{
       document.exitFullscreen().catch(()=>{});
     }
   }
+});
+
+// hide the fullscreen hint, turn indicator, and dice result once fullscreen is entered
+// (works whether fullscreen was triggered by "F" or exited via Esc)
+const hintEl = document.getElementById('hint');
+const turnInfoEl = document.getElementById('turn-info');
+const diceResultEl = document.getElementById('dice-result');
+document.addEventListener('fullscreenchange', ()=>{
+  const isFullscreen = !!document.fullscreenElement;
+  hintEl.classList.toggle('ui-hidden', isFullscreen);
+  turnInfoEl.classList.toggle('ui-hidden', isFullscreen);
+  diceResultEl.classList.toggle('ui-hidden', isFullscreen);
 });
 
 window.addEventListener('resize', ()=>{
