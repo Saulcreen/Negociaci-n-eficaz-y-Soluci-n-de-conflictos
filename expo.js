@@ -150,18 +150,17 @@
   playBtn.addEventListener('click', function(){
     introActive = false;
     if(cinematicTimer) clearTimeout(cinematicTimer);
-    if(window.MonopolyScene) window.MonopolyScene.resetView();
+    if(window.MonopolyScene){
+      window.MonopolyScene.resetView();
+      // "Permite" mostrar el HUD, pero script.js decide la última palabra: si en
+      // este momento hay pantalla completa activa, el panel se mantiene oculto.
+      window.MonopolyScene.allowHud();
+    } else if(hud){
+      // Respaldo por si script.js no expuso su API (versión vieja en caché, etc.)
+      hud.classList.remove('ui-hidden');
+    }
     introScreen.classList.add('intro-fade');
     if(topBar) topBar.classList.remove('ui-hidden');
-    if(hud) hud.classList.remove('ui-hidden');
-    // Blindaje: si por cualquier motivo (versión en caché de script.js, orden de
-    // eventos, etc.) alguno de los elementos DENTRO del HUD se quedó con la clase
-    // 'ui-hidden' pegada desde el toggle de pantalla completa, lo limpiamos acá
-    // para que el panel nunca se vea como un cuadro vacío.
-    ['turn-info', 'dice-result', 'roll-btn'].forEach(function(id){
-      const el = document.getElementById(id);
-      if(el) el.classList.remove('ui-hidden');
-    });
     setTimeout(()=> introScreen.remove(), 650);
   });
 
