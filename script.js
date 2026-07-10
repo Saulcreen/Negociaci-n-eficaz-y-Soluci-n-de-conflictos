@@ -1266,15 +1266,22 @@ window.addEventListener('keydown', e=>{
 // (works whether fullscreen was triggered by "F" or exited via Esc)
 const hintEl = document.getElementById('hint');
 const hudEl = document.getElementById('hud');
+
+// Única fuente de verdad para decidir si el panel del HUD (turno + tirar dado) se ve.
+// hudAllowed lo activa expo.js cuando el usuario le da "Jugar". Pero sin importar eso,
+// si hay pantalla completa activa, el HUD se oculta SIEMPRE. Así nunca hay dos lugares
+// del código compitiendo por mostrar/ocultar el mismo panel.
+let hudAllowed = false;
+function syncHudVisibility(){
+  const shouldShow = hudAllowed && !document.fullscreenElement;
+  hudEl.classList.toggle('ui-hidden', !shouldShow);
+}
+syncHudVisibility(); // estado inicial: oculto (hudAllowed empieza en false)
+
 document.addEventListener('fullscreenchange', ()=>{
   const isFullscreen = !!document.fullscreenElement;
-  // Solo se togglea #hint y #hud (el contenedor). #turn-info, #dice-result y #roll-btn
-  // viven DENTRO de #hud, así que ocultar #hud ya los oculta a todos en cascada.
-  // Si se les agrega/quita 'ui-hidden' a cada uno por separado, esos toggles pueden
-  // quedar desincronizados con el 'ui-hidden' que expo.js pone/quita en #hud durante
-  // la intro, dejando el panel visible pero vacío (el "cuadro" sin botones).
   hintEl.classList.toggle('ui-hidden', isFullscreen);
-  hudEl.classList.toggle('ui-hidden', isFullscreen);
+  syncHudVisibility();
 });
 
 rollBtn.addEventListener('click', rollDice);
@@ -1345,6 +1352,13 @@ window.MonopolyScene = {
   },
   fountainPos(){
     return {x: fountain.position.x, z: fountain.position.z};
+  },
+  // expo.js llama esto cuando el usuario le da "Jugar". No fuerza a mostrar el HUD:
+  // solo "permite" mostrarlo, pero syncHudVisibility() igual lo mantiene oculto si
+  // en ese momento hay pantalla completa activa.
+  allowHud(){
+    hudAllowed = true;
+    syncHudVisibility();
   }
 };
 
