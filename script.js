@@ -1318,4 +1318,90 @@ setTimeout(()=>{
   if(loading){ loading.style.opacity='0'; setTimeout(()=>loading.style.display='none',500); }
 }, 900);
 
+/* ============================= CINEMATIC TOUR API ============================= */
+// Expone una API para que la intro (expo.js) pueda animar la cámara
+// recorriendo puntos de interés del tablero (fichas, casas, fuente, dados, cartas).
+(function exposeTourAPI(){
+  let tourActive = false;
+  let tourRaf = null;
+  let tourStart = 0;
+  let currentSeq = null;
+  let onTourDone = null;
+  let savedAutoRotate = true;
+  function easeInOutCubic(t){
+    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+  }
+  function lerp(a, b, t){ return a + (b-a)*t; }
+  function applyKeyframe(kf){
+    targetTheta  = kf.theta;
+    targetPhi    = kf.phi;
+    targetDist   = kf.dist;
+    desiredTarget.set(kf.tx, kf.ty, kf.tz);
+    // fuerza instantánea para que el "lerp" suave de updateCamera() no se coma el movimiento
+    camTheta = kf.theta;
+    camPhi   = kf.phi;
+    camDist  = kf.dist;
+    camTarget.set(kf.tx, kf.ty, kf.tz);
+  }
+  function tickTour(now){
+    if(!tourActive) return;
+    const elapsed = now - tourStart;
+    const seq = currentSeq;
+    // encontrar el segmento actual
+    let acc = 0, i = 0;
+    for(; i < seq.length-1; i++){
+      const dur = seq[i+1].t - seq[i].t;
+      if(elapsed < acc + dur) break;
+      acc += dur;
+    }
+    if(i >= seq.length-1){
+      // terminó la secuencia
+      applyKeyframe(seq[seq.length-1]);
+      stopTour();
+      if(onTourDone) onTourDone();
+      return;
+    }
+    const a = seq[i], b = seq[i+1];
+    const dur = b.t - a.t;
+    const local = (elapsed - acc) / dur;
+    const t = easeInOutCubic(Math.min(1, Math.max(0, local)));
+    applyKeyframe({
+      theta: lerp(a.theta, b.theta, t),
+      phi:   lerp(a.phi,   b.phi,   t),
+      dist:  lerp(a.dist,  b.dist,  t),
+      tx:    lerp(a.tx,    b.tx,    t),
+      ty:    lerp(a.ty,    b.ty,    t),
+      tz:    lerp(a.tz,    b.tz,    t),
+    });
+    tourRaf = requestAnimationFrame(tickTour);
+  }
+  function startTour(keyframes, done){
+    if(!keyframes || keyframes.length < 2) return;
+    stopTour();
+    savedAutoRotate = autoRotate;
+    autoRotate = false;      // pausar el auto-rotado normal
+    dragging = false;
+    tourActive = true;
+    currentSeq = keyframes;
+    onTourDone = done || null;
+    tourStart = performance.now();
+    applyKeyframe(keyframes[0]);
+    tourRaf = requestAnimationFrame(tickTour);
+  }
+  function stopTour(){
+    if(!tourActive) return;
+    tourActive = false;
+    if(tourRaf) cancelAnimationFrame(tourRaf);
+    tourRaf = null;
+    currentSeq = null;
+    // devolver el auto-rotado
+    autoRotate = savedAutoRotate;
+  }
+  window.CamTour = {
+    play: startTour,
+    stop: stopTour,
+    isPlaying: () => tourActive,
+  };
+})();
+
 })();
