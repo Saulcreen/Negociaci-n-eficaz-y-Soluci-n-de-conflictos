@@ -89,25 +89,35 @@
     transform:scale(1.18);
     box-shadow:0 0 0 3px var(--accent-yellow), 0 2px 6px rgba(0,0,0,0.5);
   }
-  #roll-btn{
-    font-family:'Baloo 2', sans-serif;
-    font-weight:700;
-    font-size:16px;
-    color:var(--ink);
-    background:linear-gradient(180deg, #ffe98a, var(--accent-yellow));
-    border:2px solid #a97c1a;
-    border-radius:10px;
-    padding:10px 14px;
-    cursor:pointer;
-    box-shadow:0 4px 0 #a97c1a, 0 6px 14px rgba(0,0,0,0.4);
-    transition:transform 0.08s ease, box-shadow 0.08s ease;
-  }
-  #roll-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #a97c1a, 0 3px 8px rgba(0,0,0,0.4); }
-  #roll-btn:disabled{ opacity:0.55; cursor:default; }
   #dice-result{
     font-family:'Baloo 2', sans-serif;
     font-size:14px;
     min-height:18px;
+  }
+  #roll-btn{
+    font-family:'Baloo 2', sans-serif;
+    font-size:15px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    color:var(--ink);
+    background:linear-gradient(180deg, var(--accent-yellow), #d89b1f);
+    border:2px solid var(--panel-border);
+    border-radius:12px;
+    padding:10px 16px;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,0.4);
+    transition:transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  }
+  #roll-btn:hover:not(:disabled){
+    transform:translateY(-1px);
+    box-shadow:0 6px 14px rgba(0,0,0,0.45);
+  }
+  #roll-btn:active:not(:disabled){
+    transform:translateY(1px);
+  }
+  #roll-btn:disabled{
+    opacity:0.5;
+    cursor:default;
   }
 
   #loading{
@@ -154,7 +164,7 @@
 <div id="canvas-wrap"></div>
 
 <div id="top-bar">
-  <div id="hint">Arrastra para girar · rueda para zoom · "F" pantalla completa</div>
+  <div id="hint">Arrastra para girar · rueda para zoom · "F" pantalla completa · "SPACE" tirar dado</div>
 </div>
 
 <div id="big-number">4</div>
@@ -165,8 +175,8 @@
       <h3>Turno</h3>
       <div class="players-row" id="players-row"></div>
     </div>
-    <button id="roll-btn">🎲 Tirar los dados</button>
     <div id="dice-result"></div>
+    <button id="roll-btn" type="button">🎲 Tirar dado</button>
   </div>
 </div>
 
@@ -251,7 +261,17 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe0e8);
 scene.fog = new THREE.Fog(0xcfe6e0, 22, 46);
 
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 200);
+const BASE_FOV = 42;
+const BASE_ASPECT = 16/9;
+// mantiene el mismo ancho de tablero visible sin importar el aspect ratio,
+// para que al entrar en pantalla completa (u otro aspect) no se "revele" tablero extra a los costados
+const BASE_HALF_H = Math.tan(THREE.MathUtils.degToRad(BASE_FOV/2)) * BASE_ASPECT;
+function fovForAspect(aspect){
+  const fov = THREE.MathUtils.radToDeg(Math.atan(BASE_HALF_H/aspect)) * 2;
+  return Math.min(58, Math.max(26, fov));
+}
+
+const camera = new THREE.PerspectiveCamera(fovForAspect(window.innerWidth/window.innerHeight), window.innerWidth/window.innerHeight, 0.1, 200);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -1078,11 +1098,11 @@ players.forEach((p,i)=>{
   playersRow.appendChild(chip);
 });
 
-const rollBtn = document.getElementById('roll-btn');
 const diceResult = document.getElementById('dice-result');
+const rollBtn = document.getElementById('roll-btn');
 let rolling = false;
 
-rollBtn.addEventListener('click', ()=>{
+function rollDice(){
   if(rolling) return;
   rolling = true;
   rollBtn.disabled = true;
@@ -1119,7 +1139,7 @@ rollBtn.addEventListener('click', ()=>{
       });
     }, 950);
   });
-});
+}
 
 function showBigNumber(n){
   const el = document.getElementById('big-number');
@@ -1230,11 +1250,11 @@ window.addEventListener('keydown', e=>{
   }
   if(e.code === 'Space' || e.key === ' '){
     e.preventDefault(); // evita que la página haga scroll con la barra espaciadora
-    if(!rollBtn.disabled) rollBtn.click();
+    rollDice();
   }
 });
 
-// hide the fullscreen hint, turn indicator, dice result, and roll button once fullscreen is entered
+// hide the fullscreen hint, turn indicator, and dice result once fullscreen is entered
 // (works whether fullscreen was triggered by "F" or exited via Esc)
 const hintEl = document.getElementById('hint');
 const turnInfoEl = document.getElementById('turn-info');
@@ -1247,8 +1267,12 @@ document.addEventListener('fullscreenchange', ()=>{
   rollBtn.classList.toggle('ui-hidden', isFullscreen);
 });
 
+rollBtn.addEventListener('click', rollDice);
+
 window.addEventListener('resize', ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
+  const aspect = window.innerWidth/window.innerHeight;
+  camera.aspect = aspect;
+  camera.fov = fovForAspect(aspect);
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
