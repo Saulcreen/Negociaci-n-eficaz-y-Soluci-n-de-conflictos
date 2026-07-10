@@ -506,14 +506,14 @@ const sidewalkTex = makeSidewalkTexture();
 const boardSideMat = new THREE.MeshStandardMaterial({color:0x6c6c6e, roughness:0.9});
 const boardTopMat = new THREE.MeshStandardMaterial({map: sidewalkTex, roughness:0.88});
 const boardBaseMats = [boardSideMat, boardSideMat, boardTopMat, boardSideMat, boardSideMat, boardSideMat];
-const boardBase = new THREE.Mesh(new THREE.BoxGeometry(SIDE+3.2, 0.34, SIDE+3.2), boardBaseMats);
+const boardBase = new THREE.Mesh(new THREE.BoxGeometry(SIDE+6.6, 0.34, SIDE+6.6), boardBaseMats);
 boardBase.position.y = -0.08;
 boardBase.receiveShadow = true;
 boardGroup.add(boardBase);
 
 // dark frame border
 const frameMat = new THREE.MeshStandardMaterial({color:0x3a2a1c, roughness:0.7});
-const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(SIDE+3.5, 0.24, SIDE+3.5), frameMat);
+const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(SIDE+7.0, 0.24, SIDE+7.0), frameMat);
 frameOuter.position.y = -0.2;
 frameOuter.receiveShadow = true;
 boardGroup.add(frameOuter);
@@ -694,6 +694,81 @@ decorated.forEach(idx=>{
     boardGroup.add(h);
   }
 });
+
+/* ---- second, further-back layer: small buildings mixed with more houses ---- */
+
+// simple windowed facade texture for the taller background buildings
+function makeBuildingFacadeTexture(baseColor){
+  const size = 128;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0,0,size,size);
+  ctx.fillStyle = 'rgba(255,240,190,0.75)';
+  for(let row=0; row<6; row++){
+    for(let col=0; col<4; col++){
+      if(Math.random()>0.25){
+        ctx.fillRect(14+col*28, 10+row*20, 14, 12);
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+
+const buildingBodyColors = ['#8a8f96','#9a8a78','#7d8a8f','#8f8478','#7a7f86'];
+function makeBuilding(scale){
+  const g = new THREE.Group();
+  const w = 0.34*scale, h = (1.1+Math.random()*0.9)*scale, d = 0.34*scale;
+  const bodyColor = buildingBodyColors[Math.floor(Math.random()*buildingBodyColors.length)];
+  const facadeTex = makeBuildingFacadeTexture(bodyColor);
+  const bodyMat = new THREE.MeshStandardMaterial({map:facadeTex, roughness:0.85});
+  const sideMat = new THREE.MeshStandardMaterial({color: bodyColor, roughness:0.85});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), [sideMat,sideMat,new THREE.MeshStandardMaterial({color:0x555a5e, roughness:0.8}),sideMat,bodyMat,bodyMat]);
+  body.position.y = h/2;
+  const roofCap = new THREE.Mesh(new THREE.BoxGeometry(w*1.06,0.04*scale,d*1.06), new THREE.MeshStandardMaterial({color:0x4a4e52, roughness:0.7}));
+  roofCap.position.y = h+0.02*scale;
+  body.castShadow = roofCap.castShadow = true;
+  g.add(body, roofCap);
+  return g;
+}
+
+// extra dense house row further back, plus scattered buildings peeking above them
+const backgroundSpots = [];
+for(let i=0;i<40;i++){ if(i%10!==0) backgroundSpots.push(i); }
+backgroundSpots.forEach((idx,spotIdx)=>{
+  const tile = tiles[idx];
+  const n = edgeOutwardNormal[tile.edge];
+  const tang = {x:-n.z, z:n.x};
+  const pushOut = 2.15; // further back than the first row of houses
+
+  // most spots get 1-2 more houses, filling out the street
+  const extraHouses = 1 + Math.floor(Math.random()*2);
+  for(let k=0;k<extraHouses;k++){
+    const h = makeHouse(1.8 + Math.random()*0.6);
+    const sideJitter = (k-0.5)*0.5 + (Math.random()-0.5)*0.18;
+    h.position.set(
+      tile.x + n.x*pushOut + tang.x*sideJitter,
+      0.1,
+      tile.z + n.z*pushOut + tang.z*sideJitter
+    );
+    h.rotation.y = Math.atan2(n.x, n.z) + (Math.random()-0.5)*0.3;
+    boardGroup.add(h);
+  }
+
+  // roughly every third spot also gets a taller building rising behind the houses
+  if(spotIdx % 3 === 0){
+    const b = makeBuilding(1.0 + Math.random()*0.6);
+    b.position.set(
+      tile.x + n.x*(pushOut+0.55),
+      0.1,
+      tile.z + n.z*(pushOut+0.55)
+    );
+    b.rotation.y = Math.atan2(n.x, n.z) + (Math.random()-0.5)*0.15;
+    boardGroup.add(b);
+  }
+});
+
 
 // trees on PARQUE NORTE (index 20), echoing the reference photo
 function makeTree(scale, x, z, y){
