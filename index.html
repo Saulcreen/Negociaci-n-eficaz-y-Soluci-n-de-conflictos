@@ -708,17 +708,25 @@ players.forEach((p,i)=>{
 
 /* ============================= CAMERA CONTROLS (custom orbit) ============================= */
 
-let camDist = 15.5, camTheta = Math.PI*0.28, camPhi = 0.95; // spherical-ish
-let targetTheta = camTheta, targetDist = camDist;
+const DEFAULT_DIST = 15.5, DEFAULT_PHI = 0.95;
+let camDist = DEFAULT_DIST, camTheta = Math.PI*0.28, camPhi = DEFAULT_PHI;
+let targetTheta = camTheta, targetDist = camDist, targetPhi = camPhi;
 const camTarget = new THREE.Vector3(0,0,0);
+const desiredTarget = new THREE.Vector3(0,0,0);
+let followPlayer = null; // when set, camera tracks this player's pawn each frame
 
 function updateCamera(){
+  if(followPlayer){
+    desiredTarget.set(followPlayer.mesh.position.x, 0.32, followPlayer.mesh.position.z);
+  }
   camTheta += (targetTheta-camTheta)*0.08;
   camDist += (targetDist-camDist)*0.08;
+  camPhi += (targetPhi-camPhi)*0.08;
+  camTarget.lerp(desiredTarget, followPlayer ? 0.14 : 0.08);
   const x = camDist*Math.sin(camPhi)*Math.sin(camTheta);
   const z = camDist*Math.sin(camPhi)*Math.cos(camTheta);
   const y = camDist*Math.cos(camPhi);
-  camera.position.set(x,y,z);
+  camera.position.set(camTarget.x+x, camTarget.y+y, camTarget.z+z);
   camera.lookAt(camTarget);
 }
 
@@ -795,15 +803,39 @@ rollBtn.addEventListener('click', ()=>{
   if(rolling) return;
   rolling = true;
   rollBtn.disabled = true;
+  autoRotate = false;
+
+  // 1) zoom in on the dice so the result is easy to read
+  const diceMid = new THREE.Vector3().addVectors(dieRed.position, dieYellow.position).multiplyScalar(0.5);
+  followPlayer = null;
+  desiredTarget.copy(diceMid);
+  targetDist = 4.2;
+  targetPhi = 0.7;
+
   const d1 = 1+Math.floor(Math.random()*6);
   const d2 = 1+Math.floor(Math.random()*6);
   animateDiceRoll(d1,d2, ()=>{
     const total = d1+d2;
     diceResult.textContent = `${players[activePlayer].name} sacó ${d1} y ${d2} (total ${total})`;
-    movePawn(activePlayer, total, ()=>{
-      rolling = false;
-      rollBtn.disabled = false;
-    });
+
+    // 2) hold on the dice briefly so the numbers register, then follow the pawn as it walks
+    setTimeout(()=>{
+      followPlayer = players[activePlayer];
+      targetDist = 6.2;
+      targetPhi = 0.85;
+      movePawn(activePlayer, total, ()=>{
+        // 3) settle on the pawn's new tile for a moment, then return to the overview
+        setTimeout(()=>{
+          followPlayer = null;
+          desiredTarget.set(0,0,0);
+          targetDist = DEFAULT_DIST;
+          targetPhi = DEFAULT_PHI;
+          autoRotate = true;
+          rolling = false;
+          rollBtn.disabled = false;
+        }, 650);
+      });
+    }, 950);
   });
 });
 
