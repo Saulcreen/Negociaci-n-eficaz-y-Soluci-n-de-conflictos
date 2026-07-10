@@ -46,7 +46,7 @@
     border-radius:20px;
     opacity:0.85;
   }
-  #hint.ui-hidden, #turn-info.ui-hidden, #dice-result.ui-hidden{
+  #hint.ui-hidden, #turn-info.ui-hidden, #dice-result.ui-hidden, #roll-btn.ui-hidden{
     display:none;
   }
 
@@ -1168,31 +1168,35 @@ function animateDiceRoll(result, done){
 
 function movePawn(playerIdx, steps, done){
   const p = players[playerIdx];
-  let remaining = steps;
+  // fuerza siempre al menos 1 casilla de avance (nunca se queda quieta)
+  const totalSteps = Math.max(1, Math.round(steps));
+  let hopsDone = 0;
   function stepOnce(){
-    if(remaining<=0){
+    if(hopsDone >= totalSteps){
       p.tileIndex = ((p.tileIndex)%40+40)%40;
       layoutTileGroup(p.tileIndex);
       done();
       return;
     }
     const nextIdx = (p.tileIndex+1)%40;
-    const from = tiles[p.tileIndex];
     const to = tiles[nextIdx];
     const startPos = p.mesh.position.clone();
     const endPos = new THREE.Vector3(to.x, PAWN_Y, to.z);
-    const hopDuration = 220;
+    const hopDuration = 340; // un poco más rápido que antes (era 480)
+    const hopGap = 50; // pausa más corta entre casilla y casilla (era 90)
     const startT = performance.now();
     function hop(now){
       const t = Math.min(1,(now-startT)/hopDuration);
-      const ease = t<0.5? 2*t*t : -1+(4-2*t)*t;
+      // easing suave tipo "sine" en vez del quadratic anterior
+      const ease = -(Math.cos(Math.PI*t)-1)/2;
       p.mesh.position.lerpVectors(startPos, endPos, ease);
-      p.mesh.position.y = PAWN_Y + Math.sin(Math.PI*t)*0.18;
-      if(t<1) requestAnimationFrame(hop);
-      else {
+      p.mesh.position.y = PAWN_Y + Math.sin(Math.PI*t)*0.22;
+      if(t<1){
+        requestAnimationFrame(hop);
+      } else {
         p.tileIndex = nextIdx;
-        remaining--;
-        stepOnce();
+        hopsDone++;
+        setTimeout(stepOnce, hopGap);
       }
     }
     requestAnimationFrame(hop);
@@ -1200,9 +1204,18 @@ function movePawn(playerIdx, steps, done){
   stepOnce();
 }
 
+// separa visualmente las fichas que comparten casilla para que nunca parezca
+// que una ficha "no se movió" por quedar tapada detrás de otra
 function layoutTileGroup(idx){
   const onTile = players.filter(pl=>pl.tileIndex===idx);
+  if(onTile.length<=1) return;
   const spread = [[-0.28,-0.28],[0.28,-0.28],[-0.28,0.28],[0.28,0.28]];
+  const tile = tiles[idx];
+  onTile.forEach((pl,i)=>{
+    const off = spread[i % spread.length];
+    pl.mesh.position.x = tile.x + off[0];
+    pl.mesh.position.z = tile.z + off[1];
+  });
 }
 
 /* ============================= RESIZE + LOOP ============================= */
@@ -1215,9 +1228,13 @@ window.addEventListener('keydown', e=>{
       document.exitFullscreen().catch(()=>{});
     }
   }
+  if(e.code === 'Space' || e.key === ' '){
+    e.preventDefault(); // evita que la página haga scroll con la barra espaciadora
+    if(!rollBtn.disabled) rollBtn.click();
+  }
 });
 
-// hide the fullscreen hint, turn indicator, and dice result once fullscreen is entered
+// hide the fullscreen hint, turn indicator, dice result, and roll button once fullscreen is entered
 // (works whether fullscreen was triggered by "F" or exited via Esc)
 const hintEl = document.getElementById('hint');
 const turnInfoEl = document.getElementById('turn-info');
@@ -1227,6 +1244,7 @@ document.addEventListener('fullscreenchange', ()=>{
   hintEl.classList.toggle('ui-hidden', isFullscreen);
   turnInfoEl.classList.toggle('ui-hidden', isFullscreen);
   diceResultEl.classList.toggle('ui-hidden', isFullscreen);
+  rollBtn.classList.toggle('ui-hidden', isFullscreen);
 });
 
 window.addEventListener('resize', ()=>{
