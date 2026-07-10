@@ -2,692 +2,902 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Negociación eficaz y Solución de conflictos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Monopoly 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --board-green:#0F6B3C;
-    --board-green-dark:#0A4E2C;
-    --parchment:#F1E4C2;
-    --parchment-dark:#E4D3A6;
-    --red:#D93A2B;
-    --orange:#F0932B;
-    --yellow:#FFC93C;
-    --blue:#2E7DB8;
-    --purple:#7A4FA0;
-    --ink:#1B1B1B;
-    --ink-soft:#3A3226;
-    --money:#4E8F5C;
-    --display: 'Alfa Slab One', cursive;
-    --body: 'Poppins', sans-serif;
-    --mono: 'Space Mono', monospace;
+    --wood-dark:#4a3423;
+    --wood-mid:#6b4a30;
+    --wood-light:#8a5f3c;
+    --panel-bg: rgba(20,14,10,0.72);
+    --panel-border: #caa15a;
+    --accent-red:#d3232a;
+    --accent-yellow:#f4c430;
+    --accent-cream:#f2ecd8;
+    --ink:#241a12;
   }
-
   *{box-sizing:border-box;}
   html,body{
-    margin:0; padding:0; height:100%;
-    background:var(--board-green);
-    font-family:var(--body);
-    color:var(--ink);
-    overflow:hidden;
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:'Fredoka', sans-serif;
+    background:
+      radial-gradient(ellipse at center, rgba(255,255,255,0.05), transparent 60%),
+      repeating-linear-gradient(90deg, var(--wood-mid) 0px, var(--wood-light) 3px, var(--wood-mid) 6px, var(--wood-dark) 40px);
+    background-color: var(--wood-dark);
   }
+  #canvas-wrap{position:fixed; inset:0;}
+  canvas{display:block; width:100%; height:100%;}
 
-  /* board texture background */
-  body{
-    background-image:
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 42px),
-      repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 42px),
-      radial-gradient(circle at 50% 30%, var(--board-green) 0%, var(--board-green-dark) 100%);
-  }
-
-  .stage{
-    position:relative;
-    width:100vw; height:100vh;
-    display:flex; align-items:center; justify-content:center;
-    padding:2.2vh 3vw 9vh 3vw;
-  }
-
-  .slide{
-    position:absolute;
-    inset:2.2vh 3vw 9vh 3vw;
-    background:var(--parchment);
-    border-radius:14px;
-    border:4px solid var(--ink);
-    box-shadow: 0 18px 0 rgba(0,0,0,0.28), 0 22px 40px rgba(0,0,0,0.35);
-    opacity:0;
-    transform:translateY(24px) scale(0.985);
+  #top-bar{
+    position:fixed; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 22px;
     pointer-events:none;
-    transition:opacity .45s ease, transform .45s ease;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
+    z-index:10;
   }
-  .slide.active{
-    opacity:1;
-    transform:translateY(0) scale(1);
+  #logo-badge{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:22px;
+    color:var(--accent-cream);
+    background:var(--accent-red);
+    padding:8px 18px;
+    border-radius:10px;
+    border:3px solid var(--accent-cream);
+    box-shadow:0 4px 14px rgba(0,0,0,0.45);
+    letter-spacing:1px;
+    transform:rotate(-2deg);
     pointer-events:auto;
   }
-
-  .slide .band{
-    flex:0 0 auto;
-    padding:2.2vh 4vw 1.6vh 4vw;
-    border-bottom:4px solid var(--ink);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:24px;
-  }
-  .slide .band h1, .slide .band h2{
-    font-family:var(--display);
-    font-weight:400;
-    letter-spacing:0.5px;
-    margin:0;
-    color:var(--parchment);
-    text-shadow:2px 2px 0 rgba(0,0,0,0.25);
-    line-height:1.15;
-  }
-  .slide .band h1{ font-size:clamp(1.6rem, 3.6vw, 3.1rem); }
-  .slide .band h2{ font-size:clamp(1.2rem, 2.4vw, 2rem); }
-  .slide .band .eyebrow{
-    font-family:var(--mono);
-    font-size:clamp(0.65rem, 1vw, 0.85rem);
-    color:var(--parchment);
+  #hint{
+    font-size:13px;
+    color:var(--accent-cream);
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    padding:8px 14px;
+    border-radius:20px;
     opacity:0.85;
-    letter-spacing:2px;
-    text-transform:uppercase;
   }
 
-  .corner-badge{
-    flex:0 0 auto;
-    width:clamp(46px,5vw,66px); height:clamp(46px,5vw,66px);
-    border-radius:50%;
-    background:var(--parchment);
-    border:3px solid var(--ink);
-    display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-weight:700;
-    font-size:clamp(0.8rem,1.3vw,1.1rem);
-    color:var(--ink);
-    flex-direction:column;
-    line-height:1;
+  #hud{
+    position:fixed; left:18px; bottom:18px;
+    z-index:10;
+    display:flex; flex-direction:column; gap:10px;
+    max-width:290px;
   }
-  .corner-badge span{font-size:0.6em; opacity:0.6;}
-
-  .content{
-    flex:1 1 auto;
-    padding:3vh 4.5vw;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    gap:1.4vh;
-    overflow:auto;
+  .panel{
+    background:var(--panel-bg);
+    border:2px solid var(--panel-border);
+    border-radius:14px;
+    padding:14px 16px;
+    color:var(--accent-cream);
+    backdrop-filter: blur(4px);
+    box-shadow:0 6px 18px rgba(0,0,0,0.4);
   }
-
-  /* ---------- generic content elements ---------- */
-  .lead{
-    font-size:clamp(1.05rem, 1.6vw, 1.5rem);
-    color:var(--ink-soft);
-    max-width:56ch;
-    line-height:1.5;
-  }
-  .lead strong{color:var(--ink);}
-
-  ul.deed-list{
-    list-style:none;
-    margin:0; padding:0;
-    display:flex; flex-direction:column;
-    gap:1vh;
-  }
-  ul.deed-list li{
-    background:rgba(255,255,255,0.55);
-    border:2px solid var(--ink);
-    border-left:10px solid var(--red);
-    border-radius:6px;
-    padding:1.1vh 1.6vw;
-    font-size:clamp(0.9rem, 1.35vw, 1.25rem);
-    display:flex; align-items:baseline; gap:12px;
-  }
-  ul.deed-list li b{font-family:var(--body); font-weight:700;}
-  ul.deed-list li .tag{
-    font-family:var(--mono); font-size:0.75em; color:#fff;
-    background:var(--ink); padding:2px 8px; border-radius:4px; flex:0 0 auto;
-  }
-
-  .props-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-    gap:1.4vh 1.4vw;
-  }
-  .prop-card{
-    border:3px solid var(--ink);
-    border-radius:8px;
-    overflow:hidden;
-    background:#fff;
-    display:flex; flex-direction:column;
-    box-shadow:4px 4px 0 rgba(0,0,0,0.18);
-  }
-  .prop-card .top{
-    padding:1vh 1vw;
-    color:#fff;
-    font-family:var(--body); font-weight:700;
-    font-size:clamp(0.85rem,1.1vw,1.05rem);
-    border-bottom:3px solid var(--ink);
-    text-align:center;
-    text-transform:uppercase;
+  .panel h3{
+    margin:0 0 8px 0;
+    font-family:'Baloo 2', sans-serif;
+    font-size:15px;
+    color:var(--accent-yellow);
     letter-spacing:0.5px;
+    text-transform:uppercase;
   }
-  .prop-card .body{
-    padding:1.1vh 1vw;
-    font-size:clamp(0.75rem,1vw,0.95rem);
-    color:var(--ink-soft);
-    line-height:1.4;
-    flex:1;
-  }
-  .prop-card .price{
-    font-family:var(--mono); font-weight:700;
-    font-size:0.75rem;
-    text-align:center;
-    padding:0.6vh 0;
-    border-top:2px dashed rgba(0,0,0,0.25);
-    color:var(--ink-soft);
+  #tile-info .price{ font-size:13px; opacity:0.85; margin-top:4px;}
+  #tile-info .swatch{
+    display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:6px; vertical-align:middle; border:1px solid rgba(255,255,255,0.4);
   }
 
-  .steps-track{
-    display:flex; flex-wrap:wrap; gap:1vh 0;
-    align-items:stretch;
-    counter-reset:step;
-  }
-  .step-tile{
-    counter-increment:step;
-    flex:1 1 150px;
-    background:#fff;
-    border:2px solid var(--ink);
-    border-radius:8px;
-    padding:1.2vh 1vw;
-    margin:0 0.5vw;
-    position:relative;
-    font-size:clamp(0.78rem,1vw,0.95rem);
-    color:var(--ink-soft);
-  }
-  .step-tile::before{
-    content:counter(step);
-    font-family:var(--mono); font-weight:700;
-    color:#fff; background:var(--ink);
-    width:26px; height:26px; border-radius:50%;
+  #controls-panel{display:flex; flex-direction:column; gap:10px;}
+  .players-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .player-chip{
+    width:30px; height:30px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.6);
+    cursor:pointer;
     display:flex; align-items:center; justify-content:center;
-    margin-bottom:0.6vh;
-    font-size:0.85rem;
+    font-size:11px; font-weight:700; color:#fff;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow:0 2px 6px rgba(0,0,0,0.4);
   }
-  .step-tile b{display:block; color:var(--ink); font-family:var(--body); font-weight:700; margin-bottom:2px;}
-
-  .chance-card{
-    align-self:center;
-    max-width:560px;
-    background:#fffdf6;
-    border:3px solid var(--ink);
+  .player-chip.active{
+    transform:scale(1.18);
+    box-shadow:0 0 0 3px var(--accent-yellow), 0 2px 6px rgba(0,0,0,0.5);
+  }
+  #roll-btn{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    background:linear-gradient(180deg, #ffe98a, var(--accent-yellow));
+    border:2px solid #a97c1a;
     border-radius:10px;
-    padding:3vh 3vw;
-    text-align:center;
-    box-shadow:6px 6px 0 rgba(0,0,0,0.2);
-    transform:rotate(-1.2deg);
-  }
-  .chance-card .stamp{
-    font-family:var(--display);
-    font-size:clamp(1.4rem,2.6vw,2.2rem);
-    color:var(--orange);
-    text-shadow:2px 2px 0 var(--ink);
-    margin-bottom:1vh;
-  }
-  .chance-card p{
-    font-size:clamp(0.95rem,1.4vw,1.2rem);
-    color:var(--ink-soft);
-    line-height:1.55;
-    margin:0.8vh 0;
-  }
-
-  .two-col{
-    display:grid; grid-template-columns:1fr 1fr; gap:2vw;
-    align-items:start;
-  }
-  @media (max-width:800px){ .two-col{grid-template-columns:1fr;} }
-
-  .money-stat{
-    font-family:var(--mono); font-weight:700;
-    color:var(--money);
-    font-size:clamp(1.6rem,3vw,2.6rem);
-    line-height:1;
-  }
-  .money-stat + span{
-    font-size:0.85rem; color:var(--ink-soft);
-  }
-
-  /* ---------- title slide ---------- */
-  .title-slide{
-    align-items:center; justify-content:center; text-align:center;
-    background:
-      radial-gradient(circle at 50% 20%, rgba(255,255,255,0.5), transparent 60%),
-      var(--parchment);
-  }
-  .title-slide .go-corner{
-    position:absolute; top:16px; left:16px;
-    font-family:var(--mono); font-weight:700; font-size:0.8rem;
-    background:var(--red); color:#fff; padding:6px 12px;
-    border-radius:4px; border:2px solid var(--ink);
-    transform:rotate(-6deg);
-  }
-  .title-slide h1{
-    font-family:var(--display);
-    font-size:clamp(2rem, 5.2vw, 4.6rem);
-    line-height:1.08;
-    color:var(--ink);
-    margin:0 0 2vh 0;
-    text-shadow:3px 3px 0 var(--yellow), 6px 6px 0 rgba(0,0,0,0.15);
-  }
-  .title-slide .sub{
-    font-size:clamp(1rem,1.6vw,1.4rem);
-    color:var(--ink-soft);
-    max-width:46ch;
-    margin:0 auto 3vh auto;
-  }
-  .dice-row{ display:flex; gap:1.2vw; justify-content:center; margin-top:1vh;}
-  .die{
-    width:clamp(34px,4.2vw,52px); height:clamp(34px,4.2vw,52px);
-    background:#fff; border:3px solid var(--ink); border-radius:8px;
-    display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
-    padding:5px; box-shadow:3px 3px 0 rgba(0,0,0,0.25);
-    animation: dieSpin 3.2s ease-in-out infinite;
-  }
-  .die span{ width:60%; height:60%; background:var(--ink); border-radius:50%; margin:auto; }
-  @keyframes dieSpin{
-    0%,100%{ transform:rotate(0deg);}
-    50%{ transform:rotate(8deg);}
-  }
-
-  /* ---------- board track / progress ---------- */
-  .board-track{
-    position:fixed; left:0; right:0; bottom:0;
-    height:8.4vh;
-    background:var(--board-green-dark);
-    border-top:4px solid var(--ink);
-    display:flex; align-items:center;
-    padding:0 2vw;
-    gap:0.6vw;
-    z-index:20;
-  }
-  .track-squares{
-    flex:1;
-    display:flex;
-    gap:0.5vw;
-    overflow-x:auto;
-    scrollbar-width:none;
-    padding:0.8vh 0;
-  }
-  .track-squares::-webkit-scrollbar{display:none;}
-  .track-sq{
-    position:relative;
-    flex:0 0 auto;
-    width:clamp(30px,3.4vw,46px); height:clamp(30px,3.4vw,46px);
-    background:var(--parchment-dark);
-    border:2px solid var(--ink);
-    border-radius:5px;
+    padding:10px 14px;
     cursor:pointer;
+    box-shadow:0 4px 0 #a97c1a, 0 6px 14px rgba(0,0,0,0.4);
+    transition:transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  #roll-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 #a97c1a, 0 3px 8px rgba(0,0,0,0.4); }
+  #roll-btn:disabled{ opacity:0.55; cursor:default; }
+  #dice-result{
+    font-family:'Baloo 2', sans-serif;
+    font-size:14px;
+    min-height:18px;
+  }
+
+  #loading{
+    position:fixed; inset:0; z-index:50;
+    background: var(--wood-dark);
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-size:0.6rem; font-weight:700;
-    color:var(--ink-soft);
-    transition:background .25s, transform .2s;
-  }
-  .track-sq:hover{ transform:translateY(-3px); }
-  .track-sq.done{ background:var(--money); color:#fff; }
-  .track-sq.current{
-    background:var(--yellow);
-    color:var(--ink);
-    transform:translateY(-5px);
-    box-shadow:0 4px 0 rgba(0,0,0,0.3);
-  }
-  .token{
-    position:absolute; top:-1.9em; left:50%; transform:translateX(-50%);
-    font-size:1.3em;
-    filter:drop-shadow(1px 2px 1px rgba(0,0,0,0.4));
-    transition:opacity .2s;
-    opacity:0;
-  }
-  .track-sq.current .token{ opacity:1; }
-
-  .hint{
-    flex:0 0 auto;
-    font-family:var(--mono);
-    color:var(--parchment);
-    font-size:clamp(0.6rem,0.9vw,0.78rem);
-    opacity:0.8;
-    text-align:right;
-    line-height:1.5;
-    white-space:nowrap;
-  }
-  .hint kbd{
-    background:var(--parchment);
-    color:var(--ink);
-    padding:1px 6px;
-    border-radius:3px;
-    border:1px solid var(--ink);
-    font-family:var(--mono);
-  }
-
-  .nav-btn{
-    flex:0 0 auto;
-    width:clamp(34px,3.6vw,46px); height:clamp(34px,3.6vw,46px);
-    border-radius:50%;
-    background:var(--parchment);
-    border:2px solid var(--ink);
-    color:var(--ink);
-    font-size:1.1rem;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-    user-select:none;
-    transition:transform .15s;
-  }
-  .nav-btn:hover{ transform:scale(1.08); }
-  .nav-btn:active{ transform:scale(0.94); }
-
-  .fs-btn{
-    position:fixed; top:16px; right:16px; z-index:30;
-    font-family:var(--mono); font-size:0.72rem; font-weight:700;
-    background:var(--red); color:#fff;
-    border:2px solid var(--ink); border-radius:6px;
-    padding:8px 12px; cursor:pointer;
-    box-shadow:3px 3px 0 rgba(0,0,0,0.3);
-  }
-  .fs-btn:hover{ filter:brightness(1.08); }
-
-  @media (max-width:700px){
-    .hint{ display:none; }
+    color:var(--accent-cream); font-family:'Baloo 2', sans-serif; font-size:18px;
+    letter-spacing:1px;
+    transition:opacity 0.5s ease;
   }
 </style>
 </head>
 <body>
 
-<button class="fs-btn" id="fsBtn">⛶ PANTALLA COMPLETA (F)</button>
+<div id="loading">Preparando el tablero…</div>
 
-<div class="stage" id="stage">
+<div id="canvas-wrap"></div>
 
-  <!-- SLIDE 1 : TITLE -->
-  <div class="slide active title-slide">
-    <div class="go-corner">← SALIDA · COMIENZA EL JUEGO</div>
-    <div class="content" style="align-items:center;">
-      <div class="dice-row">
-        <div class="die"><span style="grid-column:2;grid-row:2;"></span></div>
-        <div class="die">
-          <span style="grid-column:1;grid-row:1;"></span>
-          <span style="grid-column:3;grid-row:1;"></span>
-          <span style="grid-column:1;grid-row:3;"></span>
-          <span style="grid-column:3;grid-row:3;"></span>
-        </div>
-      </div>
-      <h1>Negociación eficaz<br>y Solución de conflictos</h1>
-      <p class="sub">Estrategias para llegar a acuerdos justos, construir relaciones duraderas y resolver desacuerdos sin perder de vista lo importante.</p>
-      <p class="lead" style="text-align:center; font-family:var(--mono); font-size:0.85rem; opacity:0.7;">Usa ← → para avanzar · F para pantalla completa</p>
-    </div>
-  </div>
-
-  <!-- SLIDE 2 : AGENDA -->
-  <div class="slide">
-    <div class="band" style="background:var(--ink);">
-      <div><div class="eyebrow">Tablero de juego</div><h2>Recorrido de la exposición</h2></div>
-      <div class="corner-badge">01<span>/12</span></div>
-    </div>
-    <div class="content">
-      <div class="props-grid">
-        <div class="prop-card"><div class="top" style="background:var(--red)">Qué es negociar</div><div class="body">Definición y por qué importa</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--orange)">Elementos clave</div><div class="body">BATNA, ZOPA, intereses</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--yellow)">Estilos de negociación</div><div class="body">Las 5 formas de negociar</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--money)">Etapas del proceso</div><div class="body">De la preparación al cierre</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--blue)">Técnicas efectivas</div><div class="body">Herramientas prácticas</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--purple)">Conflictos</div><div class="body">Qué son y de dónde vienen</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--red)">Resolución</div><div class="body">Estrategias para cada caso</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--ink)">Errores comunes</div><div class="body">Lo que hay que evitar</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 3 : DEFINICION -->
-  <div class="slide">
-    <div class="band" style="background:var(--red);">
-      <div><div class="eyebrow">Concepto base</div><h2>¿Qué es la negociación?</h2></div>
-      <div class="corner-badge">02<span>/12</span></div>
-    </div>
-    <div class="content">
-      <p class="lead"><strong>Un proceso de comunicación</strong> entre dos o más partes con intereses distintos, que buscan llegar a un acuerdo mutuamente aceptable sin recurrir a la imposición.</p>
-      <div class="two-col">
-        <div class="chance-card" style="transform:rotate(-1deg);">
-          <div class="stamp">🎩 No es</div>
-          <p>Ganar a toda costa, imponerse o "hacer trampa" para quedarse con todo el tablero.</p>
-        </div>
-        <div class="chance-card" style="transform:rotate(1deg);">
-          <div class="stamp">🏠 Sí es</div>
-          <p>Construir un trato que ambas partes puedan sostener en el tiempo.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 4 : ELEMENTOS CLAVE -->
-  <div class="slide">
-    <div class="band" style="background:var(--orange);">
-      <div><div class="eyebrow">Antes de sentarse a jugar</div><h2>Elementos clave</h2></div>
-      <div class="corner-badge">03<span>/12</span></div>
-    </div>
-    <div class="content">
-      <ul class="deed-list">
-        <li><span class="tag">Intereses</span><b>vs. posiciones</b> — lo que realmente necesitas, no solo lo que pides.</li>
-        <li><span class="tag">BATNA</span><b>Mejor Alternativa a un Acuerdo Negociado</b> — tu plan B si no hay trato.</li>
-        <li><span class="tag">ZOPA</span><b>Zona de Posible Acuerdo</b> — el rango donde ambas partes pueden decir "sí".</li>
-        <li><span class="tag">Escucha</span><b>Comunicación activa</b> — entender antes de responder.</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- SLIDE 5 : ESTILOS -->
-  <div class="slide">
-    <div class="band" style="background:var(--yellow);">
-      <div><div class="eyebrow">Modelo Thomas-Kilmann</div><h2 style="color:var(--ink); text-shadow:2px 2px 0 rgba(255,255,255,0.4);">5 estilos de negociación</h2></div>
-      <div class="corner-badge">04<span>/12</span></div>
-    </div>
-    <div class="content">
-      <div class="props-grid">
-        <div class="prop-card"><div class="top" style="background:var(--red)">Competir</div><div class="body">Asertivo, poco cooperativo. Prioriza el resultado propio.</div><div class="price">ÚSALO CON MODERACIÓN</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--money)">Colaborar</div><div class="body">Asertivo y cooperativo. Busca el mejor resultado conjunto.</div><div class="price">IDEAL PARA RELACIONES LARGAS</div></div>
-        <div class="prop-card"><div class="top" style="background:#D9A62E; color:#1B1B1B;">Ceder</div><div class="body">Poco asertivo, cooperativo. Prioriza la relación.</div><div class="price">ÚTIL CUANDO EL TEMA IMPORTA POCO</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--blue)">Evitar</div><div class="body">Poco asertivo, poco cooperativo. Pospone el tema.</div><div class="price">RIESGO SI SE ABUSA</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--purple)">Comprometer</div><div class="body">Punto medio. Cada parte cede algo.</div><div class="price">SOLUCIÓN RÁPIDA, NO SIEMPRE ÓPTIMA</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 6 : ETAPAS -->
-  <div class="slide">
-    <div class="band" style="background:var(--money);">
-      <div><div class="eyebrow">El recorrido del tablero</div><h2>Etapas del proceso</h2></div>
-      <div class="corner-badge">05<span>/12</span></div>
-    </div>
-    <div class="content">
-      <div class="steps-track">
-        <div class="step-tile"><b>Preparación</b>Investiga intereses, define tu BATNA.</div>
-        <div class="step-tile"><b>Apertura</b>Presenta posiciones y genera confianza.</div>
-        <div class="step-tile"><b>Exploración</b>Descubre los intereses reales detrás de cada postura.</div>
-        <div class="step-tile"><b>Intercambio</b>Propón y evalúa opciones de valor mutuo.</div>
-        <div class="step-tile"><b>Cierre</b>Formaliza el acuerdo con claridad.</div>
-        <div class="step-tile"><b>Seguimiento</b>Verifica que el acuerdo se cumpla.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 7 : TECNICAS -->
-  <div class="slide">
-    <div class="band" style="background:var(--blue);">
-      <div><div class="eyebrow">Cartas en la mano</div><h2>Técnicas efectivas</h2></div>
-      <div class="corner-badge">06<span>/12</span></div>
-    </div>
-    <div class="content">
-      <ul class="deed-list">
-        <li><span class="tag">01</span><b>Escucha activa</b> — parafrasea y confirma lo que la otra parte necesita.</li>
-        <li><span class="tag">02</span><b>Preguntas abiertas</b> — "¿qué te preocupa de esta propuesta?"</li>
-        <li><span class="tag">03</span><b>Anclaje estratégico</b> — quien propone primero influye en el rango de la conversación.</li>
-        <li><span class="tag">04</span><b>Opciones ganar-ganar</b> — busca variables donde ambos ganen algo distinto.</li>
-        <li><span class="tag">05</span><b>Manejo del silencio</b> — una pausa bien usada dice más que una respuesta apurada.</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- SLIDE 8 : CONFLICTO -->
-  <div class="slide">
-    <div class="band" style="background:var(--purple);">
-      <div><div class="eyebrow">Ve a la cárcel... o no</div><h2>¿Qué es un conflicto?</h2></div>
-      <div class="corner-badge">07<span>/12</span></div>
-    </div>
-    <div class="content">
-      <p class="lead"><strong>Divergencia percibida de intereses</strong>: la creencia de que las aspiraciones de las partes no pueden lograrse simultáneamente.</p>
-      <div class="props-grid">
-        <div class="prop-card"><div class="top" style="background:var(--red)">Intrapersonal</div><div class="body">Dentro de una misma persona (dudas, valores en tensión).</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--orange)">Interpersonal</div><div class="body">Entre dos personas.</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--money)">Intragrupal</div><div class="body">Dentro de un mismo equipo.</div></div>
-        <div class="prop-card"><div class="top" style="background:var(--blue)">Intergrupal</div><div class="body">Entre equipos, áreas u organizaciones.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 9 : RESOLUCION -->
-  <div class="slide">
-    <div class="band" style="background:var(--red);">
-      <div><div class="eyebrow">Mismo tablero, otro objetivo</div><h2>Estrategias de resolución</h2></div>
-      <div class="corner-badge">08<span>/12</span></div>
-    </div>
-    <div class="content">
-      <p class="lead">El mismo modelo de 5 estilos aplica al conflicto: <strong>elige el estilo según qué tan importante es el tema y qué tan importante es la relación.</strong></p>
-      <div class="two-col">
-        <div class="chance-card" style="transform:rotate(-1deg);">
-          <div class="stamp">Tema importante</div>
-          <p>Colabora si hay tiempo. Compite solo si es urgente y no negociable.</p>
-        </div>
-        <div class="chance-card" style="transform:rotate(1deg);">
-          <div class="stamp">Relación importante</div>
-          <p>Cede o comprometé — proteger el vínculo puede valer más que "ganar".</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 10 : ERRORES -->
-  <div class="slide">
-    <div class="band" style="background:var(--ink);">
-      <div><div class="eyebrow">Impuesto de lujo</div><h2>Errores comunes</h2></div>
-      <div class="corner-badge">09<span>/12</span></div>
-    </div>
-    <div class="content">
-      <ul class="deed-list">
-        <li style="border-left-color:var(--red)"><span class="tag">✕</span><b>No preparar la negociación</b> — llegar sin conocer tu BATNA ni tus prioridades.</li>
-        <li style="border-left-color:var(--red)"><span class="tag">✕</span><b>Pensar en suma cero</b> — creer que lo que gana el otro, tú lo pierdes.</li>
-        <li style="border-left-color:var(--red)"><span class="tag">✕</span><b>Ceder demasiado rápido</b> — por evitar la incomodidad del desacuerdo.</li>
-        <li style="border-left-color:var(--red)"><span class="tag">✕</span><b>No escuchar</b> — negociar solo desde tu propia posición.</li>
-        <li style="border-left-color:var(--red)"><span class="tag">✕</span><b>Dejar que la emoción decida</b> — reaccionar en caliente en vez de responder con calma.</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- SLIDE 11 : CASO PRACTICO -->
-  <div class="slide">
-    <div class="band" style="background:var(--orange);">
-      <div><div class="eyebrow">Carta de suerte</div><h2>Caso práctico</h2></div>
-      <div class="corner-badge">10<span>/12</span></div>
-    </div>
-    <div class="content" style="align-items:center;">
-      <div class="chance-card">
-        <div class="stamp">🎲 SUERTE</div>
-        <p>Dos áreas de una empresa compiten por el mismo presupuesto para sus proyectos del próximo trimestre. Ambas tienen argumentos válidos y un plazo ajustado para decidir.</p>
-        <p style="font-weight:700; color:var(--ink);">¿Qué estilo de negociación usarías primero? ¿Qué preguntarías antes de proponer algo?</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE 12 : CIERRE -->
-  <div class="slide title-slide">
-    <div class="content" style="align-items:center;">
-      <h1 style="font-size:clamp(1.8rem,4vw,3.2rem);">Gracias</h1>
-      <p class="sub">Negociar bien no es ganar a toda costa: es construir acuerdos que ambas partes puedan sostener. Prepara tu BATNA, escucha con intención y busca el ganar-ganar.</p>
-      <div class="money-stat">$ GANAR–GANAR</div>
-      <span>El mejor trato es el que ambas partes vuelven a jugar</span>
-    </div>
-  </div>
-
+<div id="top-bar">
+  <div id="logo-badge">MONOPOLY 3D</div>
+  <div id="hint">Arrastra para girar · rueda para zoom · clic en una casilla</div>
 </div>
 
-<div class="board-track">
-  <div class="nav-btn" id="prevBtn">←</div>
-  <div class="track-squares" id="trackSquares"></div>
-  <div class="nav-btn" id="nextBtn">→</div>
-  <div class="hint">
-    <kbd>←</kbd> <kbd>→</kbd> navegar &nbsp;·&nbsp; <kbd>F</kbd> pantalla completa
+<div id="hud">
+  <div class="panel" id="controls-panel">
+    <h3>Turno</h3>
+    <div class="players-row" id="players-row"></div>
+    <button id="roll-btn">🎲 Tirar los dados</button>
+    <div id="dice-result"></div>
+  </div>
+  <div class="panel" id="tile-info" style="display:none;">
+    <h3 id="tile-name">—</h3>
+    <div id="tile-detail"></div>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-  const slides = document.querySelectorAll('.slide');
-  const total = slides.length;
-  let current = 0;
+(function(){
 
-  const trackContainer = document.getElementById('trackSquares');
-  const tokens = ['🎩','🚗','🐕','🚢','🐈','🥾'];
-  for(let i=0;i<total;i++){
-    const sq = document.createElement('div');
-    sq.className = 'track-sq';
-    sq.dataset.index = i;
-    sq.innerHTML = '<span class="token">'+tokens[i % tokens.length]+'</span>' + (i+1);
-    sq.addEventListener('click', ()=> goTo(i));
-    trackContainer.appendChild(sq);
+/* ============================= DATA ============================= */
+
+const GROUP_COLORS = {
+  brown:  '#8b4a2b',
+  lblue:  '#9ed8f5',
+  pink:   '#e0399a',
+  orange: '#f2941e',
+  red:    '#e2231a',
+  yellow: '#f7e017',
+  green:  '#1fa456',
+  dblue:  '#1266b5',
+  rail:   '#2b2b2b',
+  util:   '#cfcfcf',
+  corner: '#dfe9d8',
+  tax:    '#e7e2d4',
+  chance: '#e2231a',
+  chest:  '#1266b5'
+};
+
+// 40 spaces, classic layout translated to Spanish, matching the reference photo's edition style
+const SPACES = [
+  {n:'SALIDA', type:'corner', group:'corner'},
+  {n:'AV. LOS OLIVOS', type:'prop', group:'brown', price:60},
+  {n:'ARCA COMUNAL', type:'chest', group:'chest'},
+  {n:'CALLE COPACABANA', type:'prop', group:'brown', price:60},
+  {n:'IMPUESTO A LA RENTA', type:'tax', group:'tax', price:200},
+  {n:'FERROCARRIL NORTE', type:'rail', group:'rail', price:200},
+  {n:'AV. AREQUIPA', type:'prop', group:'lblue', price:100},
+  {n:'SORPRESA', type:'chance', group:'chance'},
+  {n:'AV. BRASIL', type:'prop', group:'lblue', price:100},
+  {n:'AV. JAVIER PRADO', type:'prop', group:'lblue', price:120},
+  {n:'CARCEL', type:'corner', group:'corner'},
+  {n:'CALLE DIAGONAL', type:'prop', group:'pink', price:140},
+  {n:'COMPAÑIA DE LUZ', type:'util', group:'util', price:150},
+  {n:'CALLE SAN MARTIN', type:'prop', group:'pink', price:140},
+  {n:'AV. PARDO', type:'prop', group:'pink', price:160},
+  {n:'FERROCARRIL SUR', type:'rail', group:'rail', price:200},
+  {n:'AV. LARCO', type:'prop', group:'orange', price:180},
+  {n:'ARCA COMUNAL', type:'chest', group:'chest'},
+  {n:'AV. PETIT THOUARS', type:'prop', group:'orange', price:180},
+  {n:'AV. AREQUIPA SUR', type:'prop', group:'orange', price:200},
+  {n:'PARQUE NORTE', type:'corner', group:'corner'},
+  {n:'CALLE UNION', type:'prop', group:'red', price:220},
+  {n:'SORPRESA', type:'chance', group:'chance'},
+  {n:'AV. TACNA', type:'prop', group:'red', price:220},
+  {n:'AV. WILSON', type:'prop', group:'red', price:240},
+  {n:'FERROCARRIL ESTE', type:'rail', group:'rail', price:200},
+  {n:'CALLE ANCASH', type:'prop', group:'yellow', price:260},
+  {n:'CALLE CUZCO', type:'prop', group:'yellow', price:260},
+  {n:'COMPAÑIA DE AGUA', type:'util', group:'util', price:150},
+  {n:'AV. DEL EJERCITO', type:'prop', group:'yellow', price:280},
+  {n:'VE A LA CARCEL', type:'corner', group:'corner'},
+  {n:'AV. SALAVERRY', type:'prop', group:'green', price:300},
+  {n:'AV. BENAVIDES', type:'prop', group:'green', price:300},
+  {n:'ARCA COMUNAL', type:'chest', group:'chest'},
+  {n:'AV. AVIACION', type:'prop', group:'green', price:320},
+  {n:'FERROCARRIL OESTE', type:'rail', group:'rail', price:200},
+  {n:'SORPRESA', type:'chance', group:'chance'},
+  {n:'AV. EL SOL', type:'prop', group:'dblue', price:350},
+  {n:'IMPUESTO DE LUJO', type:'tax', group:'tax', price:100},
+  {n:'AV. GARCILAZO', type:'prop', group:'dblue', price:400},
+];
+
+const PLAYER_DEFS = [
+  {name:'Azul',   color:0x2f6fd1, dark:0x1c477f},
+  {name:'Rojo',   color:0xd6362c, dark:0x8f1e18},
+  {name:'Amarillo', color:0xefc326, dark:0x9c7c14},
+  {name:'Verde',  color:0x2f9e52, dark:0x1a5c30},
+];
+
+/* ============================= THREE SETUP ============================= */
+
+const wrap = document.getElementById('canvas-wrap');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a1d13);
+scene.fog = new THREE.Fog(0x2a1d13, 22, 46);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 200);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+wrap.appendChild(renderer.domElement);
+
+// lights
+scene.add(new THREE.AmbientLight(0xfff2df, 0.55));
+const sun = new THREE.DirectionalLight(0xfff2df, 1.05);
+sun.position.set(9, 16, 7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left = -14; sun.shadow.camera.right = 14;
+sun.shadow.camera.top = 14; sun.shadow.camera.bottom = -14;
+sun.shadow.camera.far = 40;
+sun.shadow.bias = -0.0015;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xbdd7ff, 0.25);
+fill.position.set(-8,10,-6);
+scene.add(fill);
+
+// table underneath (wood)
+const tableTex = makeWoodTexture();
+const tableMat = new THREE.MeshStandardMaterial({map:tableTex, roughness:0.85, metalness:0.05});
+const table = new THREE.Mesh(new THREE.CylinderGeometry(26,26,1.2,64), tableMat);
+table.position.y = -0.9;
+table.receiveShadow = true;
+scene.add(table);
+
+/* ============================= HELPERS: CANVAS TEXTURES ============================= */
+
+function makeCanvas(w,h){
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+function makeWoodTexture(){
+  const c = makeCanvas(512,512);
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,512,0);
+  grad.addColorStop(0,'#5a3d24');
+  grad.addColorStop(0.5,'#6b4a30');
+  grad.addColorStop(1,'#4a3320');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,512,512);
+  ctx.globalAlpha = 0.25;
+  for(let i=0;i<40;i++){
+    ctx.strokeStyle = i%2? '#3a2818':'#7a5636';
+    ctx.lineWidth = 1+Math.random()*2;
+    ctx.beginPath();
+    const y = Math.random()*512;
+    ctx.moveTo(0,y);
+    ctx.bezierCurveTo(150,y+Math.random()*20-10,350,y+Math.random()*20-10,512,y);
+    ctx.stroke();
   }
-  const trackSquares = document.querySelectorAll('.track-sq');
+  ctx.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3,3);
+  return tex;
+}
 
-  function render(){
-    slides.forEach((s,i)=> s.classList.toggle('active', i===current));
-    trackSquares.forEach((sq,i)=>{
-      sq.classList.toggle('current', i===current);
-      sq.classList.toggle('done', i<current);
-    });
-    const cur = trackSquares[current];
-    if(cur) cur.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
-  }
-
-  function goTo(i){
-    current = Math.max(0, Math.min(total-1, i));
-    render();
-  }
-  function next(){ goTo(current+1); }
-  function prev(){ goTo(current-1); }
-
-  document.getElementById('nextBtn').addEventListener('click', next);
-  document.getElementById('prevBtn').addEventListener('click', prev);
-
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' '){
-      e.preventDefault(); next();
-    } else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){
-      e.preventDefault(); prev();
-    } else if(e.key === 'f' || e.key === 'F'){
-      toggleFullscreen();
-    }
-  });
-
-  function toggleFullscreen(){
-    if(!document.fullscreenElement){
-      document.documentElement.requestFullscreen().catch(()=>{});
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' ');
+  let line = '';
+  const lines = [];
+  for(let n=0;n<words.length;n++){
+    const test = line + words[n] + ' ';
+    if(ctx.measureText(test).width > maxWidth && n>0){
+      lines.push(line.trim());
+      line = words[n] + ' ';
     } else {
-      document.exitFullscreen().catch(()=>{});
+      line = test;
     }
   }
-  document.getElementById('fsBtn').addEventListener('click', toggleFullscreen);
+  lines.push(line.trim());
+  const startY = y - (lines.length-1)*lineHeight/2;
+  lines.forEach((l,i)=> ctx.fillText(l, x, startY + i*lineHeight));
+}
 
-  render();
+// build the top-face texture for one tile, oriented so text reads correctly from outside the board
+function makeTileTexture(space, rotationDeg){
+  const size = 256;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f2ecd8';
+  ctx.fillRect(0,0,size,size);
+
+  ctx.save();
+  ctx.translate(size/2, size/2);
+  ctx.rotate(rotationDeg * Math.PI/180);
+  ctx.translate(-size/2,-size/2);
+
+  const color = GROUP_COLORS[space.group];
+
+  if(space.type === 'prop'){
+    ctx.fillStyle = color;
+    ctx.fillRect(0,0,size,size*0.28);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0,0,size,size*0.28);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 15px Baloo 2, sans-serif';
+    ctx.textAlign = 'center';
+    wrapText(ctx, space.n, size/2, size*0.52, size*0.82, 18);
+    ctx.font = '600 13px Fredoka, sans-serif';
+    ctx.fillText('S/. '+space.price, size/2, size*0.88);
+  } else if(space.type === 'rail' || space.type === 'util'){
+    ctx.fillStyle = '#f2ecd8';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = space.type==='rail' ? '#2b2b2b' : '#555';
+    ctx.font = (space.type==='rail'?'46px':'46px') + ' serif';
+    ctx.textAlign='center';
+    ctx.fillText(space.type==='rail' ? '🚂' : '💡', size/2, size*0.42);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 14px Baloo 2, sans-serif';
+    wrapText(ctx, space.n, size/2, size*0.68, size*0.85, 17);
+    ctx.font = '600 12px Fredoka, sans-serif';
+    ctx.fillText('S/. '+space.price, size/2, size*0.9);
+  } else if(space.type === 'chance'){
+    ctx.fillStyle = '#f2ecd8';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#e2231a';
+    ctx.font = '80px serif';
+    ctx.textAlign='center';
+    ctx.fillText('?', size/2, size*0.6);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 15px Baloo 2, sans-serif';
+    ctx.fillText('SORPRESA', size/2, size*0.86);
+  } else if(space.type === 'chest'){
+    ctx.fillStyle = '#f2ecd8';
+    ctx.fillRect(0,0,size,size);
+    ctx.font = '64px serif';
+    ctx.textAlign='center';
+    ctx.fillText('📦', size/2, size*0.55);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 13px Baloo 2, sans-serif';
+    wrapText(ctx, 'ARCA COMUNAL', size/2, size*0.84, size*0.85, 16);
+  } else if(space.type === 'tax'){
+    ctx.fillStyle = '#f2ecd8';
+    ctx.fillRect(0,0,size,size);
+    ctx.font = '60px serif';
+    ctx.textAlign='center';
+    ctx.fillText('💰', size/2, size*0.5);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 13px Baloo 2, sans-serif';
+    wrapText(ctx, space.n, size/2, size*0.78, size*0.85, 16);
+    ctx.font = '600 12px Fredoka, sans-serif';
+    ctx.fillText('S/. '+space.price, size/2, size*0.94);
+  } else if(space.type === 'corner'){
+    ctx.fillStyle = '#dfe9d8';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#241a12';
+    ctx.textAlign='center';
+    if(space.n === 'SALIDA'){
+      ctx.font = '46px serif';
+      ctx.fillText('➜', size/2, size*0.42);
+      ctx.fillStyle = '#e2231a';
+      ctx.font = '800 26px Baloo 2, sans-serif';
+      ctx.fillText('SALIDA', size/2, size*0.72);
+    } else if(space.n === 'CARCEL'){
+      ctx.font = '52px serif';
+      ctx.fillText('🔒', size/2, size*0.45);
+      ctx.font = '800 20px Baloo 2, sans-serif';
+      ctx.fillText('CARCEL', size/2, size*0.78);
+    } else if(space.n === 'PARQUE NORTE'){
+      ctx.font = '52px serif';
+      ctx.fillText('🌳', size/2, size*0.4);
+      ctx.font = '800 17px Baloo 2, sans-serif';
+      ctx.fillText('PARQUE', size/2, size*0.68);
+      ctx.fillText('NORTE', size/2, size*0.86);
+    } else {
+      ctx.font = '48px serif';
+      ctx.fillText('🚓', size/2, size*0.42);
+      ctx.font = '800 15px Baloo 2, sans-serif';
+      wrapText(ctx, 'VE A LA CARCEL', size/2, size*0.76, size*0.85, 18);
+    }
+  }
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/* ============================= BOARD LAYOUT ============================= */
+
+const EDGE_CELLS = 9; // interior cells per edge (plus corner)
+const CELL = 1.32;
+const CORNER = 2.0;
+const SIDE = CORNER*2 + EDGE_CELLS*CELL;
+const HALF = SIDE/2;
+
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+
+// base board slab
+const boardMat = new THREE.MeshStandardMaterial({color:0xcfe3c2, roughness:0.9});
+const boardBase = new THREE.Mesh(new THREE.BoxGeometry(SIDE+0.9, 0.34, SIDE+0.9), boardMat);
+boardBase.position.y = -0.08;
+boardBase.receiveShadow = true;
+boardGroup.add(boardBase);
+
+// dark frame border
+const frameMat = new THREE.MeshStandardMaterial({color:0x3a2a1c, roughness:0.7});
+const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(SIDE+1.15, 0.24, SIDE+1.15), frameMat);
+frameOuter.position.y = -0.2;
+frameOuter.receiveShadow = true;
+boardGroup.add(frameOuter);
+
+// center felt
+const centerMat = new THREE.MeshStandardMaterial({color:0xbfe0c9, roughness:0.95});
+const centerSize = SIDE - 2*CORNER - 0.1;
+const centerMesh = new THREE.Mesh(new THREE.BoxGeometry(centerSize, 0.36, centerSize), centerMat);
+centerMesh.position.y = -0.06;
+centerMesh.receiveShadow = true;
+boardGroup.add(centerMesh);
+
+// compute tile world positions/rotations (clockwise, corner-first per edge)
+const corners = [
+  new THREE.Vector2( HALF,  HALF), // SALIDA corner region (edge0 start)
+  new THREE.Vector2(-HALF,  HALF),
+  new THREE.Vector2(-HALF, -HALF),
+  new THREE.Vector2( HALF, -HALF),
+];
+const edgeFacingRotY = [0, Math.PI/2, Math.PI, -Math.PI/2]; // which way tiles on that edge face outward
+const edgeFacingRotDeg = [0, 90, 180, 270];
+
+const tiles = []; // {mesh, space, index, pos}
+
+for(let e=0;e<4;e++){
+  const start = corners[e];
+  const end = corners[(e+1)%4];
+  for(let i=0;i<10;i++){
+    const idx = e*10+i;
+    const space = SPACES[idx];
+    const t = i/10;
+    const x = start.x + (end.x-start.x)*t;
+    const z = start.y + (end.y-start.y)*t;
+    const isCorner = (i===0);
+    const w = isCorner? CORNER : CELL;
+    const d = isCorner? CORNER : CELL;
+
+    const tex = makeTileTexture(space, edgeFacingRotDeg[e]);
+    const mat = [
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
+      new THREE.MeshStandardMaterial({map:tex, roughness:0.8}), // top
+      new THREE.MeshStandardMaterial({color:0xe7e0cc, roughness:0.85}),
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.85}),
+    ];
+    const geo = new THREE.BoxGeometry(isCorner? CORNER-0.06 : CELL-0.06, 0.14, isCorner? CORNER-0.06 : CELL-0.06);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, 0.03, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.tileIndex = idx;
+    boardGroup.add(mesh);
+    tiles.push({mesh, space, index:idx, x, z, w, d, edge:e});
+  }
+}
+
+// tiny houses decoration on some property tiles (visual flavor, like the reference photo)
+function makeHouse(scale){
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.16*scale,0.12*scale,0.16*scale), new THREE.MeshStandardMaterial({color:0xf2ecd8}));
+  base.position.y = 0.06*scale;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.13*scale,0.12*scale,4), new THREE.MeshStandardMaterial({color:0xd1392c}));
+  roof.rotation.y = Math.PI/4;
+  roof.position.y = 0.15*scale;
+  base.castShadow = roof.castShadow = true;
+  g.add(base, roof);
+  return g;
+}
+
+const decorated = [1,3,8,9,14,16,19,24,27,32,34,39];
+decorated.forEach(idx=>{
+  const tile = tiles[idx];
+  const houseCount = 1 + Math.floor(Math.random()*2);
+  for(let k=0;k<houseCount;k++){
+    const h = makeHouse(1.0);
+    h.position.set(tile.x + (k-0.5)*0.22, 0.1, tile.z + (Math.random()-0.5)*0.25);
+    boardGroup.add(h);
+  }
+});
+
+// trees on PARQUE NORTE (index 20), echoing the reference photo
+function makeTree(scale, x, z){
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.02*scale,0.03*scale,0.14*scale,6), new THREE.MeshStandardMaterial({color:0x6b4a30}));
+  trunk.position.y = 0.07*scale;
+  const foliageColors = [0x2f8f4e, 0x3aa85d, 0x257a41];
+  const foliage = new THREE.Mesh(new THREE.ConeGeometry(0.13*scale,0.28*scale,7), new THREE.MeshStandardMaterial({color:foliageColors[Math.floor(Math.random()*3)]}));
+  foliage.position.y = 0.24*scale;
+  trunk.castShadow = foliage.castShadow = true;
+  g.add(trunk, foliage);
+  g.position.set(x,0.1,z);
+  return g;
+}
+{
+  const t = tiles[20];
+  const positions = [[-0.55,-0.5],[0.55,-0.5],[-0.55,0.5],[0.55,0.5],[0,-0.7],[0,0.7]];
+  positions.forEach(p=>{
+    boardGroup.add(makeTree(1.0 + Math.random()*0.3, t.x+p[0], t.z+p[1]));
+  });
+}
+
+/* ============================= CENTER LOGO ============================= */
+
+function makeLogoTexture(){
+  const size = 1024;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,size,size);
+  ctx.save();
+  ctx.translate(size/2,size/2);
+  ctx.rotate(-18*Math.PI/180);
+  ctx.fillStyle = '#d3232a';
+  const bw = size*0.86, bh = size*0.24;
+  roundRect(ctx, -bw/2, -bh/2, bw, bh, 18);
+  ctx.fill();
+  ctx.strokeStyle = '#f2ecd8';
+  ctx.lineWidth = 8;
+  roundRect(ctx, -bw/2, -bh/2, bw, bh, 18);
+  ctx.stroke();
+  ctx.fillStyle = '#f2ecd8';
+  ctx.font = '800 92px Baloo 2, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('MONOPOLY', 0, 10);
+  ctx.restore();
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+const logoTex = makeLogoTexture();
+const logoMat = new THREE.MeshBasicMaterial({map:logoTex, transparent:true});
+const logoMesh = new THREE.Mesh(new THREE.PlaneGeometry(centerSize*0.75, centerSize*0.75), logoMat);
+logoMesh.rotation.x = -Math.PI/2;
+logoMesh.position.y = 0.13;
+boardGroup.add(logoMesh);
+
+/* ============================= CARD DECKS ============================= */
+
+function makeCardStack(color, x, z, label){
+  const g = new THREE.Group();
+  for(let i=0;i<6;i++){
+    const mat = new THREE.MeshStandardMaterial({color: i===5? color : 0xf2ecd8, roughness:0.6});
+    const card = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.02,0.78), mat);
+    card.position.set((Math.random()-0.5)*0.03, 0.14+i*0.022, (Math.random()-0.5)*0.03);
+    card.rotation.y = (Math.random()-0.5)*0.12;
+    card.castShadow = true;
+    g.add(card);
+  }
+  g.position.set(x,0,z);
+  return g;
+}
+boardGroup.add(makeCardStack(0xe2231a, -1.4, -1.0, 'SORPRESA'));
+boardGroup.add(makeCardStack(0x1266b5, 1.4, 1.0, 'ARCA'));
+
+/* ============================= DICE ============================= */
+
+function pipTexture(n, bg){
+  const c = makeCanvas(128,128);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,128,128);
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2,2,124,124);
+  ctx.fillStyle = bg === '#e2231a' ? '#fff' : '#1a1a1a';
+  const pts = {
+    1:[[64,64]],
+    2:[[38,38],[90,90]],
+    3:[[38,38],[64,64],[90,90]],
+    4:[[38,38],[90,38],[38,90],[90,90]],
+    5:[[38,38],[90,38],[64,64],[38,90],[90,90]],
+    6:[[38,32],[90,32],[38,64],[90,64],[38,96],[90,96]],
+  }[n];
+  pts.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p[0],p[1],11,0,Math.PI*2);
+    ctx.fill();
+  });
+  return new THREE.CanvasTexture(c);
+}
+
+function makeDie(bgColor){
+  const mats = [1,2,3,4,5,6].map(n=> new THREE.MeshStandardMaterial({map:pipTexture(n,bgColor), roughness:0.35}));
+  // three box order: +x,-x,+y,-y,+z,-z -> map to faces 1..6 in a valid opposite-sum-7 arrangement
+  const order = [1,6,2,5,3,4]; // ensures opposite faces sum to 7 with box face order
+  const orderedMats = order.map(n=>mats[n-1]);
+  const geo = new THREE.BoxGeometry(0.42,0.42,0.42);
+  const mesh = new THREE.Mesh(geo, orderedMats);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+const dieRed = makeDie('#e2231a');
+const dieYellow = makeDie('#f4c430');
+dieRed.position.set(-0.4, 0.35, 0.15);
+dieYellow.position.set(0.35, 0.35, -0.2);
+boardGroup.add(dieRed, dieYellow);
+
+/* ============================= PAWNS ============================= */
+
+function makePawn(color, dark){
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,0.05,20), new THREE.MeshStandardMaterial({color:dark, roughness:0.5}));
+  base.position.y = 0.025;
+  const bodyCurve = [];
+  bodyCurve.push(new THREE.Vector2(0.0,0));
+  bodyCurve.push(new THREE.Vector2(0.085,0.02));
+  bodyCurve.push(new THREE.Vector2(0.075,0.14));
+  bodyCurve.push(new THREE.Vector2(0.05,0.22));
+  bodyCurve.push(new THREE.Vector2(0.028,0.27));
+  const body = new THREE.Mesh(new THREE.LatheGeometry(bodyCurve, 24), new THREE.MeshStandardMaterial({color, roughness:0.4}));
+  body.position.y = 0.05;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.055,20,16), new THREE.MeshStandardMaterial({color, roughness:0.4}));
+  head.position.y = 0.34;
+  base.castShadow = body.castShadow = head.castShadow = true;
+  g.add(base, body, head);
+  g.scale.set(1.15,1.15,1.15);
+  return g;
+}
+
+const players = PLAYER_DEFS.map((def,i)=>{
+  const pawn = makePawn(def.color, def.dark);
+  boardGroup.add(pawn);
+  return {...def, mesh:pawn, tileIndex:0};
+});
+
+function layoutPawnsOnTile(idx){
+  const tile = tiles[idx];
+  const spread = [[-0.28,-0.28],[0.28,-0.28],[-0.28,0.28],[0.28,0.28]];
+  players.forEach((p,i)=>{
+    if(p.tileIndex !== idx) return;
+  });
+  const onTile = players.filter(p=>p.tileIndex===idx);
+  onTile.forEach((p,i)=>{
+    const off = spread[i % spread.length];
+    p.mesh.position.set(tile.x+off[0], 0.03, tile.z+off[1]);
+  });
+}
+for(let i=0;i<40;i++) layoutPawnsOnTile(i);
+players.forEach(p=>layoutPawnsOnTile(p.tileIndex));
+// place initial spread on tile 0
+players.forEach((p,i)=>{
+  const spread = [[-0.4,-0.4],[0.4,-0.4],[-0.4,0.4],[0.4,0.4]];
+  p.mesh.position.set(tiles[0].x+spread[i][0], 0.03, tiles[0].z+spread[i][1]);
+});
+
+/* ============================= CAMERA CONTROLS (custom orbit) ============================= */
+
+let camDist = 15.5, camTheta = Math.PI*0.28, camPhi = 0.95; // spherical-ish
+let targetTheta = camTheta, targetDist = camDist;
+const camTarget = new THREE.Vector3(0,0,0);
+
+function updateCamera(){
+  camTheta += (targetTheta-camTheta)*0.08;
+  camDist += (targetDist-camDist)*0.08;
+  const x = camDist*Math.sin(camPhi)*Math.sin(camTheta);
+  const z = camDist*Math.sin(camPhi)*Math.cos(camTheta);
+  const y = camDist*Math.cos(camPhi);
+  camera.position.set(x,y,z);
+  camera.lookAt(camTarget);
+}
+
+let dragging = false, lastX=0, lastY=0, autoRotate = true;
+renderer.domElement.addEventListener('pointerdown', e=>{
+  dragging = true; autoRotate = false;
+  lastX = e.clientX; lastY = e.clientY;
+});
+window.addEventListener('pointerup', ()=> dragging=false);
+window.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const dx = e.clientX-lastX;
+  targetTheta -= dx*0.006;
+  lastX = e.clientX; lastY = e.clientY;
+});
+renderer.domElement.addEventListener('wheel', e=>{
+  e.preventDefault();
+  targetDist = Math.min(28, Math.max(7, targetDist + e.deltaY*0.01));
+}, {passive:false});
+
+// tap-to-select tile
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+renderer.domElement.addEventListener('click', e=>{
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
+  mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObjects(tiles.map(t=>t.mesh));
+  if(hit.length){
+    const idx = hit[0].object.userData.tileIndex;
+    showTileInfo(idx);
+  }
+});
+
+function showTileInfo(idx){
+  const space = SPACES[idx];
+  const panel = document.getElementById('tile-info');
+  const nameEl = document.getElementById('tile-name');
+  const detail = document.getElementById('tile-detail');
+  panel.style.display = 'block';
+  nameEl.textContent = space.n;
+  let html = '';
+  if(GROUP_COLORS[space.group] && space.group!=='corner'){
+    html += `<span class="swatch" style="background:${GROUP_COLORS[space.group]}"></span>`;
+  }
+  if(space.price) html += `<span class="price">Precio: S/. ${space.price}</span>`;
+  else html += `<span class="price">Casilla especial</span>`;
+  detail.innerHTML = html;
+}
+
+/* ============================= UI: PLAYERS + DICE ROLL ============================= */
+
+let activePlayer = 0;
+const playersRow = document.getElementById('players-row');
+players.forEach((p,i)=>{
+  const chip = document.createElement('div');
+  chip.className = 'player-chip'+(i===0?' active':'');
+  chip.style.background = '#'+p.color.toString(16).padStart(6,'0');
+  chip.textContent = p.name[0];
+  chip.title = p.name;
+  chip.addEventListener('click', ()=>{
+    activePlayer = i;
+    document.querySelectorAll('.player-chip').forEach((c,ci)=> c.classList.toggle('active', ci===i));
+  });
+  playersRow.appendChild(chip);
+});
+
+const rollBtn = document.getElementById('roll-btn');
+const diceResult = document.getElementById('dice-result');
+let rolling = false;
+
+rollBtn.addEventListener('click', ()=>{
+  if(rolling) return;
+  rolling = true;
+  rollBtn.disabled = true;
+  const d1 = 1+Math.floor(Math.random()*6);
+  const d2 = 1+Math.floor(Math.random()*6);
+  animateDiceRoll(d1,d2, ()=>{
+    const total = d1+d2;
+    diceResult.textContent = `${players[activePlayer].name} sacó ${d1} y ${d2} (total ${total})`;
+    movePawn(activePlayer, total, ()=>{
+      rolling = false;
+      rollBtn.disabled = false;
+    });
+  });
+});
+
+function animateDiceRoll(d1, d2, done){
+  const duration = 700;
+  const start = performance.now();
+  const spin1 = new THREE.Vector3(6+Math.random()*4, 5+Math.random()*4, 3+Math.random()*4);
+  const spin2 = new THREE.Vector3(4+Math.random()*4, 7+Math.random()*4, 5+Math.random()*4);
+  function tick(now){
+    const t = Math.min(1, (now-start)/duration);
+    dieRed.rotation.x += spin1.x*0.05*(1-t);
+    dieRed.rotation.y += spin1.y*0.05*(1-t);
+    dieYellow.rotation.x += spin2.x*0.05*(1-t);
+    dieYellow.rotation.z += spin2.z*0.05*(1-t);
+    if(t<1){ requestAnimationFrame(tick); }
+    else { done(); }
+  }
+  requestAnimationFrame(tick);
+}
+
+function movePawn(playerIdx, steps, done){
+  const p = players[playerIdx];
+  let remaining = steps;
+  function stepOnce(){
+    if(remaining<=0){
+      p.tileIndex = ((p.tileIndex)%40+40)%40;
+      layoutTileGroup(p.tileIndex);
+      showTileInfo(p.tileIndex);
+      done();
+      return;
+    }
+    const nextIdx = (p.tileIndex+1)%40;
+    const from = tiles[p.tileIndex];
+    const to = tiles[nextIdx];
+    const startPos = p.mesh.position.clone();
+    const endPos = new THREE.Vector3(to.x, 0.03, to.z);
+    const hopDuration = 220;
+    const startT = performance.now();
+    function hop(now){
+      const t = Math.min(1,(now-startT)/hopDuration);
+      const ease = t<0.5? 2*t*t : -1+(4-2*t)*t;
+      p.mesh.position.lerpVectors(startPos, endPos, ease);
+      p.mesh.position.y = 0.03 + Math.sin(Math.PI*t)*0.18;
+      if(t<1) requestAnimationFrame(hop);
+      else {
+        p.tileIndex = nextIdx;
+        remaining--;
+        stepOnce();
+      }
+    }
+    requestAnimationFrame(hop);
+  }
+  stepOnce();
+}
+
+function layoutTileGroup(idx){
+  const onTile = players.filter(pl=>pl.tileIndex===idx);
+  const spread = [[-0.28,-0.28],[0.28,-0.28],[-0.28,0.28],[0.28,0.28]];
+}
+
+/* ============================= RESIZE + LOOP ============================= */
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate(now){
+  requestAnimationFrame(animate);
+  if(autoRotate && !dragging){
+    targetTheta += 0.0016;
+  }
+  dieRed.rotation.y += 0.0015;
+  dieYellow.rotation.y -= 0.0012;
+  updateCamera();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{
+    const loading = document.getElementById('loading');
+    loading.style.opacity = '0';
+    setTimeout(()=> loading.style.display='none', 500);
+  }, 300);
+});
+// in case load already fired
+setTimeout(()=>{
+  const loading = document.getElementById('loading');
+  if(loading){ loading.style.opacity='0'; setTimeout(()=>loading.style.display='none',500); }
+}, 900);
+
+})();
 </script>
-
 </body>
 </html>
