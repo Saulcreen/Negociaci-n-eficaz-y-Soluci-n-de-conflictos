@@ -1265,16 +1265,16 @@ window.addEventListener('keydown', e=>{
 // hide the fullscreen hint, turn indicator, and dice result once fullscreen is entered
 // (works whether fullscreen was triggered by "F" or exited via Esc)
 const hintEl = document.getElementById('hint');
-const turnInfoEl = document.getElementById('turn-info');
-const diceResultEl = document.getElementById('dice-result');
 const hudEl = document.getElementById('hud');
 document.addEventListener('fullscreenchange', ()=>{
   const isFullscreen = !!document.fullscreenElement;
+  // Solo se togglea #hint y #hud (el contenedor). #turn-info, #dice-result y #roll-btn
+  // viven DENTRO de #hud, así que ocultar #hud ya los oculta a todos en cascada.
+  // Si se les agrega/quita 'ui-hidden' a cada uno por separado, esos toggles pueden
+  // quedar desincronizados con el 'ui-hidden' que expo.js pone/quita en #hud durante
+  // la intro, dejando el panel visible pero vacío (el "cuadro" sin botones).
   hintEl.classList.toggle('ui-hidden', isFullscreen);
-  turnInfoEl.classList.toggle('ui-hidden', isFullscreen);
-  diceResultEl.classList.toggle('ui-hidden', isFullscreen);
-  rollBtn.classList.toggle('ui-hidden', isFullscreen);
-  hudEl.classList.toggle('ui-hidden', isFullscreen); // oculta el panel completo, no solo su contenido
+  hudEl.classList.toggle('ui-hidden', isFullscreen);
 });
 
 rollBtn.addEventListener('click', rollDice);
