@@ -192,12 +192,6 @@ function makeTileTexture(space, rotationDeg){
     ctx.strokeStyle = 'rgba(0,0,0,0.25)';
     ctx.lineWidth = 3;
     ctx.strokeRect(0,0,size,size*0.28);
-    ctx.fillStyle = '#241a12';
-    ctx.font = '700 15px Baloo 2, sans-serif';
-    ctx.textAlign = 'center';
-    wrapText(ctx, space.n, size/2, size*0.52, size*0.82, 18);
-    ctx.font = '600 13px Fredoka, sans-serif';
-    ctx.fillText('S/. '+space.price, size/2, size*0.88);
   } else if(space.type === 'rail' || space.type === 'util'){
     ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
@@ -205,11 +199,6 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = (space.type==='rail'?'46px':'46px') + ' serif';
     ctx.textAlign='center';
     ctx.fillText(space.type==='rail' ? '🚂' : '💡', size/2, size*0.42);
-    ctx.fillStyle = '#241a12';
-    ctx.font = '700 14px Baloo 2, sans-serif';
-    wrapText(ctx, space.n, size/2, size*0.68, size*0.85, 17);
-    ctx.font = '600 12px Fredoka, sans-serif';
-    ctx.fillText('S/. '+space.price, size/2, size*0.9);
   } else if(space.type === 'chance'){
     ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
@@ -217,29 +206,18 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = '80px serif';
     ctx.textAlign='center';
     ctx.fillText('?', size/2, size*0.6);
-    ctx.fillStyle = '#241a12';
-    ctx.font = '700 15px Baloo 2, sans-serif';
-    ctx.fillText('SORPRESA', size/2, size*0.86);
   } else if(space.type === 'chest'){
     ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
     ctx.font = '64px serif';
     ctx.textAlign='center';
     ctx.fillText('📦', size/2, size*0.55);
-    ctx.fillStyle = '#241a12';
-    ctx.font = '700 13px Baloo 2, sans-serif';
-    wrapText(ctx, 'ARCA COMUNAL', size/2, size*0.84, size*0.85, 16);
   } else if(space.type === 'tax'){
     ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
     ctx.font = '60px serif';
     ctx.textAlign='center';
     ctx.fillText('💰', size/2, size*0.5);
-    ctx.fillStyle = '#241a12';
-    ctx.font = '700 13px Baloo 2, sans-serif';
-    wrapText(ctx, space.n, size/2, size*0.78, size*0.85, 16);
-    ctx.font = '600 12px Fredoka, sans-serif';
-    ctx.fillText('S/. '+space.price, size/2, size*0.94);
   } else if(space.type === 'corner'){
     ctx.fillStyle = '#7c7d7f';
     ctx.fillRect(0,0,size,size);
@@ -247,26 +225,16 @@ function makeTileTexture(space, rotationDeg){
     ctx.textAlign='center';
     if(space.n === 'SALIDA'){
       ctx.font = '46px serif';
-      ctx.fillText('➜', size/2, size*0.42);
-      ctx.fillStyle = '#e2231a';
-      ctx.font = '800 26px Baloo 2, sans-serif';
-      ctx.fillText('SALIDA', size/2, size*0.72);
+      ctx.fillText('➜', size/2, size*0.52);
     } else if(space.n === 'CARCEL'){
       ctx.font = '52px serif';
-      ctx.fillText('🔒', size/2, size*0.45);
-      ctx.font = '800 20px Baloo 2, sans-serif';
-      ctx.fillText('CARCEL', size/2, size*0.78);
+      ctx.fillText('🔒', size/2, size*0.52);
     } else if(space.n === 'PARQUE NORTE'){
       ctx.font = '52px serif';
-      ctx.fillText('🌳', size/2, size*0.4);
-      ctx.font = '800 17px Baloo 2, sans-serif';
-      ctx.fillText('PARQUE', size/2, size*0.68);
-      ctx.fillText('NORTE', size/2, size*0.86);
+      ctx.fillText('🌳', size/2, size*0.52);
     } else {
       ctx.font = '48px serif';
-      ctx.fillText('🚓', size/2, size*0.42);
-      ctx.font = '800 15px Baloo 2, sans-serif';
-      wrapText(ctx, 'VE A LA CARCEL', size/2, size*0.76, size*0.85, 18);
+      ctx.fillText('🚓', size/2, size*0.52);
     }
   }
   ctx.restore();
