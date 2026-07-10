@@ -476,12 +476,87 @@ frameOuter.receiveShadow = true;
 boardGroup.add(frameOuter);
 
 // center felt
-const centerMat = new THREE.MeshStandardMaterial({color:0xbfe0c9, roughness:0.95});
+function makeGrassTexture(){
+  const size = 1024;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,size,size);
+  grad.addColorStop(0,'#4c9a4c');
+  grad.addColorStop(0.5,'#5cae57');
+  grad.addColorStop(1,'#458f47');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,size,size);
+
+  for(let i=0;i<260;i++){
+    const x = Math.random()*size, y = Math.random()*size;
+    const r = 30+Math.random()*90;
+    const lighter = Math.random()>0.5;
+    ctx.fillStyle = lighter ? 'rgba(215,240,170,0.055)' : 'rgba(25,60,25,0.06)';
+    ctx.beginPath();
+    ctx.ellipse(x,y,r,r*0.65,Math.random()*Math.PI,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  for(let i=0;i<7000;i++){
+    const x = Math.random()*size, y = Math.random()*size;
+    const h = 6+Math.random()*11;
+    const lean = (Math.random()-0.5)*6;
+    ctx.lineWidth = 0.7+Math.random()*1.1;
+    ctx.strokeStyle = Math.random()>0.55 ? 'rgba(75,150,62,0.5)' : 'rgba(28,68,28,0.45)';
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x+lean,y-h);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.repeat.set(1,1);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const centerMat = new THREE.MeshStandardMaterial({map: makeGrassTexture(), roughness:0.95});
 const centerSize = SIDE - 2*CORNER - 0.1;
 const centerMesh = new THREE.Mesh(new THREE.BoxGeometry(centerSize, 0.36, centerSize), centerMat);
 centerMesh.position.y = -0.06;
 centerMesh.receiveShadow = true;
 boardGroup.add(centerMesh);
+
+// bushes scattered around the green center, like clipped shrubs bordering the lawn
+function makeBush(x, z, scale){
+  const g = new THREE.Group();
+  const greens = [0x2f7d3a, 0x3a9146, 0x256b32, 0x448f4d];
+  const blobCount = 3 + Math.floor(Math.random()*2);
+  for(let i=0;i<blobCount;i++){
+    const r = (0.09 + Math.random()*0.05) * scale;
+    const mat = new THREE.MeshStandardMaterial({color: greens[Math.floor(Math.random()*greens.length)], roughness:0.85});
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), mat);
+    blob.position.set((Math.random()-0.5)*0.12*scale, r*0.75 + Math.random()*0.02, (Math.random()-0.5)*0.12*scale);
+    blob.scale.y = 0.8;
+    blob.castShadow = true;
+    blob.receiveShadow = true;
+    g.add(blob);
+  }
+  g.position.set(x, 0.12, z);
+  return g;
+}
+
+const centerHalf = centerSize/2;
+const bushSpots = [
+  [-(centerHalf-0.32), -(centerHalf-0.32)],
+  [ (centerHalf-0.32), -(centerHalf-0.32)],
+  [-(centerHalf-0.32),  (centerHalf-0.32)],
+  [ (centerHalf-0.32),  (centerHalf-0.32)],
+  [-(centerHalf-0.32), 0],
+  [ (centerHalf-0.32), 0],
+  [0, -(centerHalf-0.32)],
+  [0,  (centerHalf-0.32)],
+  [-(centerHalf-0.65), -(centerHalf-1.5)],
+  [ (centerHalf-0.65),  (centerHalf-1.5)],
+  [-(centerHalf-1.5),  (centerHalf-0.65)],
+  [ (centerHalf-1.5), -(centerHalf-0.65)],
+];
+bushSpots.forEach(p=> boardGroup.add(makeBush(p[0], p[1], 0.85+Math.random()*0.4)));
 
 // compute tile world positions/rotations (clockwise, corner-first per edge)
 const corners = [
@@ -553,7 +628,7 @@ decorated.forEach(idx=>{
 });
 
 // trees on PARQUE NORTE (index 20), echoing the reference photo
-function makeTree(scale, x, z){
+function makeTree(scale, x, z, y){
   const g = new THREE.Group();
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.02*scale,0.03*scale,0.14*scale,6), new THREE.MeshStandardMaterial({color:0x6b4a30}));
   trunk.position.y = 0.07*scale;
@@ -562,7 +637,7 @@ function makeTree(scale, x, z){
   foliage.position.y = 0.24*scale;
   trunk.castShadow = foliage.castShadow = true;
   g.add(trunk, foliage);
-  g.position.set(x,0.1,z);
+  g.position.set(x, y===undefined?0.1:y, z);
   return g;
 }
 {
@@ -572,6 +647,19 @@ function makeTree(scale, x, z){
     boardGroup.add(makeTree(1.0 + Math.random()*0.3, t.x+p[0], t.z+p[1]));
   });
 }
+
+// extra trees scattered across the green center, away from the dice/cards in the middle
+const centerTreeSpots = [
+  [-(centerHalf-0.9), -(centerHalf-0.9)],
+  [ (centerHalf-0.9), -(centerHalf-0.9)],
+  [-(centerHalf-0.9),  (centerHalf-0.9)],
+  [ (centerHalf-0.9),  (centerHalf-0.9)],
+  [-(centerHalf-0.32), -(centerHalf-1.7)],
+  [ (centerHalf-0.32),  (centerHalf-1.7)],
+];
+centerTreeSpots.forEach(p=>{
+  boardGroup.add(makeTree(0.85 + Math.random()*0.4, p[0], p[1], 0.12));
+});
 
 /* ============================= CENTER LOGO ============================= */
 
