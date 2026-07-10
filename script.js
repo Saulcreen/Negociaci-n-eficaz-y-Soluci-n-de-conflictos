@@ -1,0 +1,1321 @@
+(function(){
+
+/* ============================= DATA ============================= */
+
+const GROUP_COLORS = {
+  brown:  '#8b4a2b',
+  lblue:  '#9ed8f5',
+  pink:   '#e0399a',
+  orange: '#f2941e',
+  red:    '#e2231a',
+  yellow: '#f7e017',
+  green:  '#1fa456',
+  dblue:  '#1266b5',
+  rail:   '#2b2b2b',
+  util:   '#cfcfcf',
+  corner: '#dfe9d8',
+  tax:    '#e7e2d4',
+  chance: '#e2231a',
+  chest:  '#1266b5'
+};
+
+// 40 spaces, classic layout translated to Spanish, matching the reference photo's edition style
+const SPACES = [
+  {n:'SALIDA', type:'corner', group:'corner'},
+  {n:'AV. LOS OLIVOS', type:'prop', group:'brown', price:60},
+  {n:'ARCA COMUNAL', type:'chest', group:'chest'},
+  {n:'CALLE COPACABANA', type:'prop', group:'brown', price:60},
+  {n:'IMPUESTO A LA RENTA', type:'tax', group:'tax', price:200},
+  {n:'FERROCARRIL NORTE', type:'rail', group:'rail', price:200},
+  {n:'AV. AREQUIPA', type:'prop', group:'lblue', price:100},
+  {n:'SORPRESA', type:'chance', group:'chance'},
+  {n:'AV. BRASIL', type:'prop', group:'lblue', price:100},
+  {n:'AV. JAVIER PRADO', type:'prop', group:'lblue', price:120},
+  {n:'CARCEL', type:'corner', group:'corner'},
+  {n:'CALLE DIAGONAL', type:'prop', group:'pink', price:140},
+  {n:'COMPAÑIA DE LUZ', type:'util', group:'util', price:150},
+  {n:'CALLE SAN MARTIN', type:'prop', group:'pink', price:140},
+  {n:'AV. PARDO', type:'prop', group:'pink', price:160},
+  {n:'FERROCARRIL SUR', type:'rail', group:'rail', price:200},
+  {n:'AV. LARCO', type:'prop', group:'orange', price:180},
+  {n:'ARCA COMUNAL', type:'chest', group:'chest'},
+  {n:'AV. PETIT THOUARS', type:'prop', group:'orange', price:180},
+  {n:'AV. AREQUIPA SUR', type:'prop', group:'orange', price:200},
+  {n:'PARQUE NORTE', type:'corner', group:'corner'},
+  {n:'CALLE UNION', type:'prop', group:'red', price:220},
+  {n:'SORPRESA', type:'chance', group:'chance'},
+  {n:'AV. TACNA', type:'prop', group:'red', price:220},
+  {n:'AV. WILSON', type:'prop', group:'red', price:240},
+  {n:'FERROCARRIL ESTE', type:'rail', group:'rail', price:200},
+  {n:'CALLE ANCASH', type:'prop', group:'yellow', price:260},
+  {n:'CALLE CUZCO', type:'prop', group:'yellow', price:260},
+  {n:'COMPAÑIA DE AGUA', type:'util', group:'util', price:150},
+  {n:'AV. DEL EJERCITO', type:'prop', group:'yellow', price:280},
+  {n:'VE A LA CARCEL', type:'corner', group:'corner'},
+  {n:'AV. SALAVERRY', type:'prop', group:'green', price:300},
+  {n:'AV. BENAVIDES', type:'prop', group:'green', price:300},
+  {n:'ARCA COMUNAL', type:'chest', group:'chest'},
+  {n:'AV. AVIACION', type:'prop', group:'green', price:320},
+  {n:'FERROCARRIL OESTE', type:'rail', group:'rail', price:200},
+  {n:'SORPRESA', type:'chance', group:'chance'},
+  {n:'AV. EL SOL', type:'prop', group:'dblue', price:350},
+  {n:'IMPUESTO DE LUJO', type:'tax', group:'tax', price:100},
+  {n:'AV. GARCILAZO', type:'prop', group:'dblue', price:400},
+];
+
+const PLAYER_DEFS = [
+  {name:'Azul',   color:0x2f6fd1, dark:0x1c477f},
+  {name:'Rojo',   color:0xd6362c, dark:0x8f1e18},
+  {name:'Amarillo', color:0xefc326, dark:0x9c7c14},
+  {name:'Verde',  color:0x2f9e52, dark:0x1a5c30},
+];
+
+/* ============================= THREE SETUP ============================= */
+
+const wrap = document.getElementById('canvas-wrap');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfe0e8);
+scene.fog = new THREE.Fog(0xcfe6e0, 22, 46);
+
+const BASE_FOV = 42;
+const BASE_ASPECT = 16/9;
+// mantiene el mismo ancho de tablero visible sin importar el aspect ratio,
+// para que al entrar en pantalla completa (u otro aspect) no se "revele" tablero extra a los costados
+const BASE_HALF_H = Math.tan(THREE.MathUtils.degToRad(BASE_FOV/2)) * BASE_ASPECT;
+function fovForAspect(aspect){
+  const fov = THREE.MathUtils.radToDeg(Math.atan(BASE_HALF_H/aspect)) * 2;
+  return Math.min(58, Math.max(26, fov));
+}
+
+const camera = new THREE.PerspectiveCamera(fovForAspect(window.innerWidth/window.innerHeight), window.innerWidth/window.innerHeight, 0.1, 200);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+wrap.appendChild(renderer.domElement);
+
+// lights
+scene.add(new THREE.AmbientLight(0xfff2df, 0.55));
+const sun = new THREE.DirectionalLight(0xfff2df, 1.05);
+sun.position.set(9, 16, 7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left = -14; sun.shadow.camera.right = 14;
+sun.shadow.camera.top = 14; sun.shadow.camera.bottom = -14;
+sun.shadow.camera.far = 40;
+sun.shadow.bias = -0.0015;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xbdd7ff, 0.25);
+fill.position.set(-8,10,-6);
+scene.add(fill);
+
+// table underneath (wood)
+const tableTex = makeWoodTexture();
+const tableMat = new THREE.MeshStandardMaterial({map:tableTex, roughness:0.85, metalness:0.05});
+const table = new THREE.Mesh(new THREE.CylinderGeometry(26,26,1.2,64), tableMat);
+table.position.y = -0.9;
+table.receiveShadow = true;
+scene.add(table);
+
+/* ============================= HELPERS: CANVAS TEXTURES ============================= */
+
+function makeCanvas(w,h){
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+function makeWoodTexture(){
+  const c = makeCanvas(512,512);
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,512,0);
+  grad.addColorStop(0,'#5a3d24');
+  grad.addColorStop(0.5,'#6b4a30');
+  grad.addColorStop(1,'#4a3320');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,512,512);
+  ctx.globalAlpha = 0.25;
+  for(let i=0;i<40;i++){
+    ctx.strokeStyle = i%2? '#3a2818':'#7a5636';
+    ctx.lineWidth = 1+Math.random()*2;
+    ctx.beginPath();
+    const y = Math.random()*512;
+    ctx.moveTo(0,y);
+    ctx.bezierCurveTo(150,y+Math.random()*20-10,350,y+Math.random()*20-10,512,y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3,3);
+  return tex;
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' ');
+  let line = '';
+  const lines = [];
+  for(let n=0;n<words.length;n++){
+    const test = line + words[n] + ' ';
+    if(ctx.measureText(test).width > maxWidth && n>0){
+      lines.push(line.trim());
+      line = words[n] + ' ';
+    } else {
+      line = test;
+    }
+  }
+  lines.push(line.trim());
+  const startY = y - (lines.length-1)*lineHeight/2;
+  lines.forEach((l,i)=> ctx.fillText(l, x, startY + i*lineHeight));
+}
+
+// build the top-face texture for one tile, oriented so text reads correctly from outside the board
+function makeTileTexture(space, rotationDeg){
+  const size = 256;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8d8e90';
+  ctx.fillRect(0,0,size,size);
+
+  ctx.save();
+  ctx.translate(size/2, size/2);
+  ctx.rotate(rotationDeg * Math.PI/180);
+  ctx.translate(-size/2,-size/2);
+
+  const color = GROUP_COLORS[space.group];
+
+  if(space.type === 'prop'){
+    ctx.fillStyle = color;
+    ctx.fillRect(0,0,size,size*0.28);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0,0,size,size*0.28);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 15px Baloo 2, sans-serif';
+    ctx.textAlign = 'center';
+    wrapText(ctx, space.n, size/2, size*0.52, size*0.82, 18);
+    ctx.font = '600 13px Fredoka, sans-serif';
+    ctx.fillText('S/. '+space.price, size/2, size*0.88);
+  } else if(space.type === 'rail' || space.type === 'util'){
+    ctx.fillStyle = '#8d8e90';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = space.type==='rail' ? '#2b2b2b' : '#555';
+    ctx.font = (space.type==='rail'?'46px':'46px') + ' serif';
+    ctx.textAlign='center';
+    ctx.fillText(space.type==='rail' ? '🚂' : '💡', size/2, size*0.42);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 14px Baloo 2, sans-serif';
+    wrapText(ctx, space.n, size/2, size*0.68, size*0.85, 17);
+    ctx.font = '600 12px Fredoka, sans-serif';
+    ctx.fillText('S/. '+space.price, size/2, size*0.9);
+  } else if(space.type === 'chance'){
+    ctx.fillStyle = '#8d8e90';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#e2231a';
+    ctx.font = '80px serif';
+    ctx.textAlign='center';
+    ctx.fillText('?', size/2, size*0.6);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 15px Baloo 2, sans-serif';
+    ctx.fillText('SORPRESA', size/2, size*0.86);
+  } else if(space.type === 'chest'){
+    ctx.fillStyle = '#8d8e90';
+    ctx.fillRect(0,0,size,size);
+    ctx.font = '64px serif';
+    ctx.textAlign='center';
+    ctx.fillText('📦', size/2, size*0.55);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 13px Baloo 2, sans-serif';
+    wrapText(ctx, 'ARCA COMUNAL', size/2, size*0.84, size*0.85, 16);
+  } else if(space.type === 'tax'){
+    ctx.fillStyle = '#8d8e90';
+    ctx.fillRect(0,0,size,size);
+    ctx.font = '60px serif';
+    ctx.textAlign='center';
+    ctx.fillText('💰', size/2, size*0.5);
+    ctx.fillStyle = '#241a12';
+    ctx.font = '700 13px Baloo 2, sans-serif';
+    wrapText(ctx, space.n, size/2, size*0.78, size*0.85, 16);
+    ctx.font = '600 12px Fredoka, sans-serif';
+    ctx.fillText('S/. '+space.price, size/2, size*0.94);
+  } else if(space.type === 'corner'){
+    ctx.fillStyle = '#7c7d7f';
+    ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#241a12';
+    ctx.textAlign='center';
+    if(space.n === 'SALIDA'){
+      ctx.font = '46px serif';
+      ctx.fillText('➜', size/2, size*0.42);
+      ctx.fillStyle = '#e2231a';
+      ctx.font = '800 26px Baloo 2, sans-serif';
+      ctx.fillText('SALIDA', size/2, size*0.72);
+    } else if(space.n === 'CARCEL'){
+      ctx.font = '52px serif';
+      ctx.fillText('🔒', size/2, size*0.45);
+      ctx.font = '800 20px Baloo 2, sans-serif';
+      ctx.fillText('CARCEL', size/2, size*0.78);
+    } else if(space.n === 'PARQUE NORTE'){
+      ctx.font = '52px serif';
+      ctx.fillText('🌳', size/2, size*0.4);
+      ctx.font = '800 17px Baloo 2, sans-serif';
+      ctx.fillText('PARQUE', size/2, size*0.68);
+      ctx.fillText('NORTE', size/2, size*0.86);
+    } else {
+      ctx.font = '48px serif';
+      ctx.fillText('🚓', size/2, size*0.42);
+      ctx.font = '800 15px Baloo 2, sans-serif';
+      wrapText(ctx, 'VE A LA CARCEL', size/2, size*0.76, size*0.85, 18);
+    }
+  }
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/* ============================= BOARD LAYOUT ============================= */
+
+const EDGE_CELLS = 9; // interior cells per edge (plus corner)
+const CELL = 1.32;
+const CORNER = 2.0;
+const SIDE = CORNER*2 + EDGE_CELLS*CELL;
+const HALF = SIDE/2;
+
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+
+// sidewalk texture: gray concrete slabs with a darker gray lane running through them ("pistas")
+function makeSidewalkTexture(){
+  const size = 1024;
+  const canvas = makeCanvas(size,size);
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,size,size);
+  grad.addColorStop(0,'#8f9092');
+  grad.addColorStop(1,'#7d7e80');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,size,size);
+
+  // speckle noise for concrete grain
+  for(let i=0;i<3200;i++){
+    const x = Math.random()*size, y = Math.random()*size;
+    ctx.fillStyle = Math.random()>0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(40,40,45,0.07)';
+    ctx.fillRect(x,y,1+Math.random()*2,1+Math.random()*2);
+  }
+
+  // paver grid joints ("pistas")
+  const cell = size/8;
+  ctx.strokeStyle = 'rgba(40,40,44,0.5)';
+  ctx.lineWidth = 5;
+  for(let i=0;i<=8;i++){
+    ctx.beginPath(); ctx.moveTo(i*cell,0); ctx.lineTo(i*cell,size); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*cell); ctx.lineTo(size,i*cell); ctx.stroke();
+  }
+
+  // walking lane down the middle of the strip, in a more intense gray than the rest of the sidewalk
+  ctx.fillStyle = 'rgba(45,46,50,0.9)';
+  const dashLen = cell*0.5, gap = cell*0.35, mid = size/2 - 9;
+  for(let x=cell*0.25; x<size; x+=dashLen+gap){
+    ctx.fillRect(x, mid, dashLen, 18);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1,1);
+  return tex;
+}
+
+// base board slab -> now a sidewalk ring surrounding the tiles
+const sidewalkTex = makeSidewalkTexture();
+const boardSideMat = new THREE.MeshStandardMaterial({color:0x6c6c6e, roughness:0.9});
+const boardTopMat = new THREE.MeshStandardMaterial({map: sidewalkTex, roughness:0.88});
+const boardBaseMats = [boardSideMat, boardSideMat, boardTopMat, boardSideMat, boardSideMat, boardSideMat];
+const boardBase = new THREE.Mesh(new THREE.BoxGeometry(SIDE+7.8, 0.34, SIDE+7.8), boardBaseMats);
+boardBase.position.y = -0.08;
+boardBase.receiveShadow = true;
+boardGroup.add(boardBase);
+
+// dark frame border
+const frameMat = new THREE.MeshStandardMaterial({color:0x3a2a1c, roughness:0.7});
+const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(SIDE+8.2, 0.24, SIDE+8.2), frameMat);
+frameOuter.position.y = -0.2;
+frameOuter.receiveShadow = true;
+boardGroup.add(frameOuter);
+
+// center felt
+function makeGrassTexture(){
+  const size = 1024;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,size,size);
+  grad.addColorStop(0,'#4c9a4c');
+  grad.addColorStop(0.5,'#5cae57');
+  grad.addColorStop(1,'#458f47');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,size,size);
+
+  for(let i=0;i<260;i++){
+    const x = Math.random()*size, y = Math.random()*size;
+    const r = 30+Math.random()*90;
+    const lighter = Math.random()>0.5;
+    ctx.fillStyle = lighter ? 'rgba(215,240,170,0.055)' : 'rgba(25,60,25,0.06)';
+    ctx.beginPath();
+    ctx.ellipse(x,y,r,r*0.65,Math.random()*Math.PI,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  for(let i=0;i<7000;i++){
+    const x = Math.random()*size, y = Math.random()*size;
+    const h = 6+Math.random()*11;
+    const lean = (Math.random()-0.5)*6;
+    ctx.lineWidth = 0.7+Math.random()*1.1;
+    ctx.strokeStyle = Math.random()>0.55 ? 'rgba(75,150,62,0.5)' : 'rgba(28,68,28,0.45)';
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x+lean,y-h);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.repeat.set(1,1);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const centerMat = new THREE.MeshStandardMaterial({map: makeGrassTexture(), roughness:0.95});
+const centerSize = SIDE - 2*CORNER - 0.1;
+const centerMesh = new THREE.Mesh(new THREE.BoxGeometry(centerSize, 0.36, centerSize), centerMat);
+centerMesh.position.y = -0.06;
+centerMesh.receiveShadow = true;
+boardGroup.add(centerMesh);
+
+// bushes scattered around the green center, like clipped shrubs bordering the lawn
+function makeBush(x, z, scale){
+  const g = new THREE.Group();
+  const greens = [0x2f7d3a, 0x3a9146, 0x256b32, 0x448f4d];
+  const blobCount = 3 + Math.floor(Math.random()*2);
+  for(let i=0;i<blobCount;i++){
+    const r = (0.09 + Math.random()*0.05) * scale;
+    const mat = new THREE.MeshStandardMaterial({color: greens[Math.floor(Math.random()*greens.length)], roughness:0.85});
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), mat);
+    blob.position.set((Math.random()-0.5)*0.12*scale, r*0.75 + Math.random()*0.02, (Math.random()-0.5)*0.12*scale);
+    blob.scale.y = 0.8;
+    blob.castShadow = true;
+    blob.receiveShadow = true;
+    g.add(blob);
+  }
+  g.position.set(x, 0.12, z);
+  return g;
+}
+
+const centerHalf = centerSize/2;
+
+/* ---- avoid placing greenery on top of the red MONOPOLY logo band ---- */
+// the logo band is a rectangle (bw x bh out of a 1024 texture) rotated ±18deg,
+// drawn onto a plane of size centerSize*0.75. We reproduce that geometry here
+// so trees/bushes never get placed on top of the red stripe.
+const LOGO_PLANE_SIZE = centerSize*0.75;
+const LOGO_HALF_W = (0.86*LOGO_PLANE_SIZE)/2 + 0.22; // padding so trunks/foliage don't kiss the edge either
+const LOGO_HALF_H = (0.24*LOGO_PLANE_SIZE)/2 + 0.22;
+function pointInRotatedRect(x, z, angleDeg, halfW, halfH){
+  const rad = angleDeg * Math.PI/180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const lx = x*cos + z*sin;
+  const lz = -x*sin + z*cos;
+  return Math.abs(lx) <= halfW && Math.abs(lz) <= halfH;
+}
+function onLogoBand(x, z){
+  // test both rotation directions so the exclusion holds regardless of the
+  // exact screen-space orientation of the rotated logo texture
+  return pointInRotatedRect(x, z, 18, LOGO_HALF_W, LOGO_HALF_H) ||
+         pointInRotatedRect(x, z, -18, LOGO_HALF_W, LOGO_HALF_H);
+}
+
+const bushSpots = [
+  [-(centerHalf-0.32), -(centerHalf-0.32)],
+  [ (centerHalf-0.32), -(centerHalf-0.32)],
+  [-(centerHalf-0.32),  (centerHalf-0.32)],
+  [ (centerHalf-0.32),  (centerHalf-0.32)],
+  [-(centerHalf-0.32), 0],
+  [ (centerHalf-0.32), 0],
+  [0, -(centerHalf-0.32)],
+  [0,  (centerHalf-0.32)],
+  [-(centerHalf-0.65), -(centerHalf-1.5)],
+  [ (centerHalf-0.65),  (centerHalf-1.5)],
+  [-(centerHalf-1.5),  (centerHalf-0.65)],
+  [ (centerHalf-1.5), -(centerHalf-0.65)],
+];
+bushSpots.filter(p=> !onLogoBand(p[0],p[1])).forEach(p=> boardGroup.add(makeBush(p[0], p[1], 0.85+Math.random()*0.4)));
+
+// --- extra bushes & trees dispersed further across the lawn, avoiding the dice/cards hub and the fountain ---
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const greenExclusions = [
+  {x:0, z:0, r:1.3},          // dice hub
+  {x:-1.4, z:-1.0, r:0.9},    // SORPRESA card stack
+  {x:1.4, z:1.0, r:0.9},      // ARCA card stack
+  {x:0, z:-3.3, r:1.55},      // fountain
+];
+function farFromExclusions(x, z, extraPts){
+  return greenExclusions.every(e => Math.hypot(x-e.x, z-e.z) > e.r) &&
+         !onLogoBand(x, z) &&
+         (extraPts||[]).every(p => Math.hypot(x-p.x, z-p.z) > 0.5);
+}
+
+const rndBush = mulberry32(1337);
+const scatterBushSpots = [];
+{
+  const limit = centerHalf - 0.28;
+  let attempts = 0;
+  while(scatterBushSpots.length < 24 && attempts < 500){
+    attempts++;
+    const x = (rndBush()*2-1)*limit;
+    const z = (rndBush()*2-1)*limit;
+    if(farFromExclusions(x, z, scatterBushSpots)) scatterBushSpots.push({x, z});
+  }
+}
+scatterBushSpots.forEach(p=> boardGroup.add(makeBush(p.x, p.z, 0.55 + Math.random()*0.5)));
+
+// compute tile world positions/rotations (clockwise, corner-first per edge)
+const corners = [
+  new THREE.Vector2( HALF,  HALF), // SALIDA corner region (edge0 start)
+  new THREE.Vector2(-HALF,  HALF),
+  new THREE.Vector2(-HALF, -HALF),
+  new THREE.Vector2( HALF, -HALF),
+];
+const edgeFacingRotY = [0, Math.PI/2, Math.PI, -Math.PI/2]; // which way tiles on that edge face outward
+const edgeFacingRotDeg = [0, 90, 180, 270];
+
+const tiles = []; // {mesh, space, index, pos}
+
+for(let e=0;e<4;e++){
+  const start = corners[e];
+  const end = corners[(e+1)%4];
+  for(let i=0;i<10;i++){
+    const idx = e*10+i;
+    const space = SPACES[idx];
+    const t = i/10;
+    const x = start.x + (end.x-start.x)*t;
+    const z = start.y + (end.y-start.y)*t;
+    const isCorner = (i===0);
+    const w = isCorner? CORNER : CELL;
+    const d = isCorner? CORNER : CELL;
+
+    const tex = makeTileTexture(space, edgeFacingRotDeg[e]);
+    const mat = [
+      new THREE.MeshStandardMaterial({color:0x818284, roughness:0.85}),
+      new THREE.MeshStandardMaterial({color:0x818284, roughness:0.85}),
+      new THREE.MeshStandardMaterial({map:tex, roughness:0.8}), // top
+      new THREE.MeshStandardMaterial({color:0x6c6d6f, roughness:0.85}),
+      new THREE.MeshStandardMaterial({color:0x818284, roughness:0.85}),
+      new THREE.MeshStandardMaterial({color:0x818284, roughness:0.85}),
+    ];
+    const geo = new THREE.BoxGeometry(isCorner? CORNER-0.06 : CELL-0.06, 0.14, isCorner? CORNER-0.06 : CELL-0.06);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, 0.03, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.tileIndex = idx;
+    boardGroup.add(mesh);
+    tiles.push({mesh, space, index:idx, x, z, w, d, edge:e});
+  }
+}
+
+// decorative houses lining the sidewalk OUTSIDE the tiles (visual flavor, like little street-front homes)
+const roofColors = [0xd1392c, 0xb5502e, 0x8a6a3a, 0x4a6b8a, 0x5a7a4a];
+function makeHouse(scale){
+  const g = new THREE.Group();
+  const wallColor = Math.random()>0.5 ? 0xf2ecd8 : 0xe8d9b8;
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.26*scale,0.20*scale,0.26*scale), new THREE.MeshStandardMaterial({color:wallColor, roughness:0.85}));
+  base.position.y = 0.10*scale;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.21*scale,0.20*scale,4), new THREE.MeshStandardMaterial({color:roofColors[Math.floor(Math.random()*roofColors.length)], roughness:0.7}));
+  roof.rotation.y = Math.PI/4;
+  roof.position.y = 0.24*scale;
+  // little door for extra detail now that houses are bigger
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.06*scale,0.10*scale,0.02*scale), new THREE.MeshStandardMaterial({color:0x5a3d24}));
+  door.position.set(0, 0.05*scale, 0.13*scale+0.005);
+  base.castShadow = roof.castShadow = true;
+  g.add(base, roof, door);
+  return g;
+}
+
+// outward-facing unit normal for each board edge, pointing away from the tiles toward the sidewalk margin
+const edgeOutwardNormal = [
+  {x:0, z:1},   // edge0: +z
+  {x:-1, z:0},  // edge1: -x
+  {x:0, z:-1},  // edge2: -z
+  {x:1, z:0},   // edge3: +x
+];
+
+// decorate almost every non-corner tile so the sidewalk feels like a lined street
+const decorated = [];
+for(let i=0;i<40;i++){ if(i%10!==0) decorated.push(i); }
+decorated.forEach(idx=>{
+  const tile = tiles[idx];
+  const n = edgeOutwardNormal[tile.edge];
+  // tangent direction along the edge, used to spread houses sideways instead of overlapping
+  const tang = {x:-n.z, z:n.x};
+  const houseCount = 2 + Math.floor(Math.random()*2);
+  const pushOut = 1.3; // distance beyond the tile's outer edge, out on the sidewalk
+  for(let k=0;k<houseCount;k++){
+    const h = makeHouse(2.3 + Math.random()*0.5);
+    const sideJitter = (k-0.5)*0.4 + (Math.random()-0.5)*0.12;
+    h.position.set(
+      tile.x + n.x*pushOut + tang.x*sideJitter,
+      0.1,
+      tile.z + n.z*pushOut + tang.z*sideJitter
+    );
+    h.rotation.y = Math.atan2(n.x, n.z) + (Math.random()-0.5)*0.2;
+    boardGroup.add(h);
+  }
+});
+
+/* ---- second, further-back layer: small buildings mixed with more houses ---- */
+
+// simple windowed facade texture for the taller background buildings
+function makeBuildingFacadeTexture(baseColor){
+  const size = 128;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0,0,size,size);
+  ctx.fillStyle = 'rgba(255,240,190,0.75)';
+  for(let row=0; row<6; row++){
+    for(let col=0; col<4; col++){
+      if(Math.random()>0.25){
+        ctx.fillRect(14+col*28, 10+row*20, 14, 12);
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+
+const buildingBodyColors = ['#8a8f96','#9a8a78','#7d8a8f','#8f8478','#7a7f86'];
+function makeBuilding(scale){
+  const g = new THREE.Group();
+  const w = 0.34*scale, h = (1.1+Math.random()*0.9)*scale, d = 0.34*scale;
+  const bodyColor = buildingBodyColors[Math.floor(Math.random()*buildingBodyColors.length)];
+  const facadeTex = makeBuildingFacadeTexture(bodyColor);
+  const bodyMat = new THREE.MeshStandardMaterial({map:facadeTex, roughness:0.85});
+  const sideMat = new THREE.MeshStandardMaterial({color: bodyColor, roughness:0.85});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), [sideMat,sideMat,new THREE.MeshStandardMaterial({color:0x555a5e, roughness:0.8}),sideMat,bodyMat,bodyMat]);
+  body.position.y = h/2;
+  const roofCap = new THREE.Mesh(new THREE.BoxGeometry(w*1.06,0.04*scale,d*1.06), new THREE.MeshStandardMaterial({color:0x4a4e52, roughness:0.7}));
+  roofCap.position.y = h+0.02*scale;
+  body.castShadow = roofCap.castShadow = true;
+  g.add(body, roofCap);
+  return g;
+}
+
+// extra dense house row further back, plus scattered buildings peeking above them
+const backgroundSpots = [];
+for(let i=0;i<40;i++){ if(i%10!==0) backgroundSpots.push(i); }
+backgroundSpots.forEach((idx,spotIdx)=>{
+  const tile = tiles[idx];
+  const n = edgeOutwardNormal[tile.edge];
+  const tang = {x:-n.z, z:n.x};
+  const pushOut = 2.15; // further back than the first row of houses
+
+  // fill this row generously with houses
+  const extraHouses = 2 + Math.floor(Math.random()*2);
+  for(let k=0;k<extraHouses;k++){
+    const h = makeHouse(1.8 + Math.random()*0.6);
+    const sideJitter = (k-0.75)*0.42 + (Math.random()-0.5)*0.16;
+    h.position.set(
+      tile.x + n.x*pushOut + tang.x*sideJitter,
+      0.1,
+      tile.z + n.z*pushOut + tang.z*sideJitter
+    );
+    h.rotation.y = Math.atan2(n.x, n.z) + (Math.random()-0.5)*0.3;
+    boardGroup.add(h);
+  }
+
+  // most spots now get a taller building rising behind the houses
+  if(spotIdx % 2 === 0){
+    const b = makeBuilding(1.0 + Math.random()*0.6);
+    b.position.set(
+      tile.x + n.x*(pushOut+0.55) + tang.x*0.25,
+      0.1,
+      tile.z + n.z*(pushOut+0.55) + tang.z*0.25
+    );
+    b.rotation.y = Math.atan2(n.x, n.z) + (Math.random()-0.5)*0.15;
+    boardGroup.add(b);
+  }
+});
+
+/* ---- third layer: a skyline of buildings farthest back, filling the remaining margin ---- */
+const skylineSpots = [];
+for(let i=0;i<40;i++){ if(i%10!==0) skylineSpots.push(i); }
+skylineSpots.forEach((idx,spotIdx)=>{
+  if(spotIdx % 2 !== 0) return; // alternate spots for a filled but not overcrowded skyline
+  const tile = tiles[idx];
+  const n = edgeOutwardNormal[tile.edge];
+  const tang = {x:-n.z, z:n.x};
+  const pushOut = 2.95;
+  const b = makeBuilding(1.2 + Math.random()*0.8);
+  const sideJitter = (Math.random()-0.5)*0.5;
+  b.position.set(
+    tile.x + n.x*pushOut + tang.x*sideJitter,
+    0.1,
+    tile.z + n.z*pushOut + tang.z*sideJitter
+  );
+  b.rotation.y = Math.atan2(n.x, n.z) + (Math.random()-0.5)*0.15;
+  boardGroup.add(b);
+});
+
+
+// trees on PARQUE NORTE (index 20), echoing the reference photo
+function makeTree(scale, x, z, y){
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.02*scale,0.03*scale,0.14*scale,6), new THREE.MeshStandardMaterial({color:0x6b4a30}));
+  trunk.position.y = 0.07*scale;
+  const foliageColors = [0x2f8f4e, 0x3aa85d, 0x257a41];
+  const foliage = new THREE.Mesh(new THREE.ConeGeometry(0.13*scale,0.28*scale,7), new THREE.MeshStandardMaterial({color:foliageColors[Math.floor(Math.random()*3)]}));
+  foliage.position.y = 0.24*scale;
+  trunk.castShadow = foliage.castShadow = true;
+  g.add(trunk, foliage);
+  g.position.set(x, y===undefined?0.1:y, z);
+  return g;
+}
+{
+  const t = tiles[20];
+  const positions = [[-0.55,-0.5],[0.55,-0.5],[-0.55,0.5],[0.55,0.5],[0,-0.7],[0,0.7]];
+  positions.forEach(p=>{
+    boardGroup.add(makeTree(1.0 + Math.random()*0.3, t.x+p[0], t.z+p[1]));
+  });
+}
+
+// extra trees scattered across the green center, away from the dice/cards in the middle
+const centerTreeSpots = [
+  [-(centerHalf-0.9), -(centerHalf-0.9)],
+  [ (centerHalf-0.9), -(centerHalf-0.9)],
+  [-(centerHalf-0.9),  (centerHalf-0.9)],
+  [ (centerHalf-0.9),  (centerHalf-0.9)],
+  [-(centerHalf-0.32), -(centerHalf-1.7)],
+  [ (centerHalf-0.32),  (centerHalf-1.7)],
+];
+centerTreeSpots.filter(p=> !onLogoBand(p[0],p[1])).forEach(p=>{
+  boardGroup.add(makeTree(0.85 + Math.random()*0.4, p[0], p[1], 0.12));
+});
+
+// many more trees dispersed across the lawn, keeping clear of the dice hub, cards, fountain, and the red logo band
+const rndTree = mulberry32(9001);
+const scatterTreeSpots = [];
+{
+  const limit = centerHalf - 0.4;
+  const avoid = scatterBushSpots.map(p=>({x:p.x, z:p.z}));
+  let attempts = 0;
+  while(scatterTreeSpots.length < 20 && attempts < 600){
+    attempts++;
+    const x = (rndTree()*2-1)*limit;
+    const z = (rndTree()*2-1)*limit;
+    if(farFromExclusions(x, z, avoid.concat(scatterTreeSpots))){
+      scatterTreeSpots.push({x, z});
+    }
+  }
+}
+scatterTreeSpots.forEach(p=>{
+  boardGroup.add(makeTree(0.7 + Math.random()*0.55, p.x, p.z, 0.1 + Math.random()*0.05));
+});
+
+/* ============================= CENTER LOGO ============================= */
+
+function makeLogoTexture(){
+  const size = 1024;
+  const c = makeCanvas(size,size);
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,size,size);
+  ctx.save();
+  ctx.translate(size/2,size/2);
+  ctx.rotate(-18*Math.PI/180);
+  ctx.fillStyle = '#d3232a';
+  const bw = size*0.86, bh = size*0.24;
+  roundRect(ctx, -bw/2, -bh/2, bw, bh, 18);
+  ctx.fill();
+  ctx.strokeStyle = '#f2ecd8';
+  ctx.lineWidth = 8;
+  roundRect(ctx, -bw/2, -bh/2, bw, bh, 18);
+  ctx.stroke();
+  ctx.fillStyle = '#f2ecd8';
+  ctx.font = '800 92px Baloo 2, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('MONOPOLY', 0, 10);
+  ctx.restore();
+  const tex = new THREE.CanvasTexture(c);
+  return tex;
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+const logoTex = makeLogoTexture();
+const logoMat = new THREE.MeshBasicMaterial({map:logoTex, transparent:true});
+const logoMesh = new THREE.Mesh(new THREE.PlaneGeometry(centerSize*0.75, centerSize*0.75), logoMat);
+logoMesh.rotation.x = -Math.PI/2;
+logoMesh.position.y = 0.13;
+boardGroup.add(logoMesh);
+
+/* ============================= CARD DECKS ============================= */
+
+function makeCardStack(color, x, z, label){
+  const g = new THREE.Group();
+  for(let i=0;i<6;i++){
+    const mat = new THREE.MeshStandardMaterial({color: i===5? color : 0xf2ecd8, roughness:0.6});
+    const card = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.02,0.78), mat);
+    card.position.set((Math.random()-0.5)*0.03, 0.14+i*0.022, (Math.random()-0.5)*0.03);
+    card.rotation.y = (Math.random()-0.5)*0.12;
+    card.castShadow = true;
+    g.add(card);
+  }
+  g.position.set(x,0,z);
+  return g;
+}
+boardGroup.add(makeCardStack(0xe2231a, -1.4, -1.0, 'SORPRESA'));
+boardGroup.add(makeCardStack(0x1266b5, 1.4, 1.0, 'ARCA'));
+
+/* ============================= DICE ============================= */
+
+function pipTexture(n, bg){
+  const c = makeCanvas(128,128);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,128,128);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2,2,124,124);
+  ctx.fillStyle = '#ffffff';
+  const pts = {
+    1:[[64,64]],
+    2:[[38,38],[90,90]],
+    3:[[38,38],[64,64],[90,90]],
+    4:[[38,38],[90,38],[38,90],[90,90]],
+    5:[[38,38],[90,38],[64,64],[38,90],[90,90]],
+    6:[[38,32],[90,32],[38,64],[90,64],[38,96],[90,96]],
+  }[n];
+  pts.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p[0],p[1],11,0,Math.PI*2);
+    ctx.fill();
+  });
+  return new THREE.CanvasTexture(c);
+}
+
+// local-space normal (before rotation) that each pip value sits on, matching the material order below
+const DIE_FACE_NORMALS = {
+  1: new THREE.Vector3(1,0,0),
+  6: new THREE.Vector3(-1,0,0),
+  2: new THREE.Vector3(0,1,0),
+  5: new THREE.Vector3(0,-1,0),
+  3: new THREE.Vector3(0,0,1),
+  4: new THREE.Vector3(0,0,-1),
+};
+
+function makeDie(bgColor){
+  const mats = [1,2,3,4,5,6].map(n=> new THREE.MeshStandardMaterial({map:pipTexture(n,bgColor), roughness:0.3}));
+  // three box material order: +x,-x,+y,-y,+z,-z -> map to faces 1..6 so opposite faces sum to 7
+  const order = [1,6,2,5,3,4];
+  const orderedMats = order.map(n=>mats[n-1]);
+  const geo = new THREE.BoxGeometry(0.42,0.42,0.42);
+  const mesh = new THREE.Mesh(geo, orderedMats);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+// quaternion that lands the die with the given value's face pointing straight up
+function faceUpQuaternion(value){
+  const normal = DIE_FACE_NORMALS[value].clone();
+  const up = new THREE.Vector3(0,1,0);
+  const q = new THREE.Quaternion().setFromUnitVectors(normal, up);
+  const yaw = new THREE.Quaternion().setFromAxisAngle(up, Math.random()*Math.PI*2);
+  return yaw.multiply(q);
+}
+
+const die = makeDie('#161616');
+die.scale.set(1.5,1.5,1.5);
+die.position.set(0, 0.42, 0);
+boardGroup.add(die);
+
+/* ============================= FUENTE (animated fountain) ============================= */
+
+function makeFountain(x, z, scale){
+  const g = new THREE.Group();
+  const stoneMat = new THREE.MeshStandardMaterial({color:0xd8cbaa, roughness:0.85});
+  const trimMat = new THREE.MeshStandardMaterial({color:0xcaa15a, roughness:0.45, metalness:0.35});
+  const waterMat = new THREE.MeshStandardMaterial({color:0x4fa8d8, roughness:0.12, metalness:0.05, transparent:true, opacity:0.85});
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.54*scale, 0.6*scale, 0.08*scale, 22), stoneMat);
+  base.position.y = 0.04*scale;
+  base.receiveShadow = true;
+  g.add(base);
+
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(0.52*scale, 0.52*scale, 0.15*scale, 22, 1, true), stoneMat);
+  wall.position.y = 0.08*scale + 0.075*scale;
+  wall.castShadow = true;
+  g.add(wall);
+
+  const trim = new THREE.Mesh(new THREE.TorusGeometry(0.52*scale, 0.022*scale, 8, 26), trimMat);
+  trim.rotation.x = Math.PI/2;
+  trim.position.y = 0.08*scale + 0.15*scale;
+  g.add(trim);
+
+  const waterLower = new THREE.Mesh(new THREE.CircleGeometry(0.48*scale, 26), waterMat);
+  waterLower.rotation.x = -Math.PI/2;
+  const waterLowerBaseY = 0.08*scale + 0.11*scale;
+  waterLower.position.y = waterLowerBaseY;
+  g.add(waterLower);
+
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.06*scale, 0.08*scale, 0.36*scale, 12), stoneMat);
+  column.position.y = waterLowerBaseY + 0.18*scale;
+  column.castShadow = true;
+  g.add(column);
+
+  const upperBaseY = waterLowerBaseY + 0.36*scale + 0.03*scale;
+  const upperBase = new THREE.Mesh(new THREE.CylinderGeometry(0.19*scale, 0.17*scale, 0.06*scale, 16), stoneMat);
+  upperBase.position.y = upperBaseY;
+  upperBase.castShadow = true;
+  g.add(upperBase);
+
+  const upperTrim = new THREE.Mesh(new THREE.TorusGeometry(0.19*scale, 0.016*scale, 8, 20), trimMat);
+  upperTrim.rotation.x = Math.PI/2;
+  upperTrim.position.y = upperBaseY + 0.035*scale;
+  g.add(upperTrim);
+
+  const waterUpperBaseY = upperBaseY + 0.025*scale;
+  const waterUpper = new THREE.Mesh(new THREE.CircleGeometry(0.165*scale, 16), waterMat);
+  waterUpper.rotation.x = -Math.PI/2;
+  waterUpper.position.y = waterUpperBaseY;
+  g.add(waterUpper);
+
+  const nozzleY = waterUpperBaseY + 0.05*scale;
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.018*scale, 0.018*scale, 0.08*scale, 8), trimMat);
+  nozzle.position.y = nozzleY;
+  g.add(nozzle);
+
+  g.position.set(x, 0, z);
+
+  // water spray particles: rise from the nozzle, arc outward and fall back into the basin, looping
+  const particleCount = 90;
+  const positions = new Float32Array(particleCount*3);
+  const velocities = new Array(particleCount);
+  const spawnY = nozzleY + 0.04*scale;
+  const floorY = waterUpperBaseY - 0.02*scale;
+
+  function resetDrop(i){
+    const ang = Math.random()*Math.PI*2;
+    const outward = 0.12 + Math.random()*0.22;
+    velocities[i] = {
+      vx: Math.cos(ang)*outward*scale,
+      vy: (0.95 + Math.random()*0.45)*scale,
+      vz: Math.sin(ang)*outward*scale,
+    };
+    positions[i*3] = 0;
+    positions[i*3+1] = spawnY;
+    positions[i*3+2] = 0;
+  }
+  for(let i=0;i<particleCount;i++) resetDrop(i);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const dropMat = new THREE.PointsMaterial({color:0xd7f1fb, size:0.04*scale, transparent:true, opacity:0.9, depthWrite:false});
+  const points = new THREE.Points(geo, dropMat);
+  g.add(points);
+
+  const gravity = 2.4*scale;
+  g.userData.updateWater = function(dt){
+    const arr = geo.attributes.position.array;
+    for(let i=0;i<particleCount;i++){
+      const v = velocities[i];
+      v.vy -= gravity*dt;
+      arr[i*3]   += v.vx*dt;
+      arr[i*3+1] += v.vy*dt;
+      arr[i*3+2] += v.vz*dt;
+      if(arr[i*3+1] < floorY){
+        resetDrop(i);
+        arr[i*3] = positions[i*3];
+        arr[i*3+1] = positions[i*3+1];
+        arr[i*3+2] = positions[i*3+2];
+      }
+    }
+    geo.attributes.position.needsUpdate = true;
+  };
+  g.userData.updateShimmer = function(t){
+    waterLower.position.y = waterLowerBaseY + Math.sin(t*1.3)*0.004*scale;
+    waterUpper.position.y = waterUpperBaseY + Math.sin(t*1.7+1)*0.004*scale;
+  };
+
+  return g;
+}
+
+const fountain = makeFountain(0, -3.3, 1.15);
+boardGroup.add(fountain);
+const fountains = [fountain];
+
+/* ============================= PAWNS ============================= */
+
+function makePawn(color, dark){
+  const g = new THREE.Group();
+
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color, roughness:0.28, metalness:0.08, clearcoat:0.55, clearcoatRoughness:0.25
+  });
+  const darkMat = new THREE.MeshPhysicalMaterial({
+    color:dark, roughness:0.35, metalness:0.12, clearcoat:0.35, clearcoatRoughness:0.3
+  });
+  const collarMat = new THREE.MeshStandardMaterial({color:0xf4eddc, roughness:0.4, metalness:0.15});
+
+  // base disc with a soft bevel edge instead of a hard cylinder
+  const baseCurve = [
+    new THREE.Vector2(0.0,0.0),
+    new THREE.Vector2(0.115,0.0),
+    new THREE.Vector2(0.122,0.014),
+    new THREE.Vector2(0.108,0.03),
+    new THREE.Vector2(0.09,0.038),
+  ];
+  const base = new THREE.Mesh(new THREE.LatheGeometry(baseCurve, 40), darkMat);
+
+  // main body: wider foot, cinched waist, rounded belly, tapered neck — a classic pawn silhouette
+  const bodyCurve = [
+    new THREE.Vector2(0.0,0.0),
+    new THREE.Vector2(0.088,0.0),
+    new THREE.Vector2(0.082,0.02),
+    new THREE.Vector2(0.062,0.05),
+    new THREE.Vector2(0.075,0.095),
+    new THREE.Vector2(0.08,0.14),
+    new THREE.Vector2(0.068,0.185),
+    new THREE.Vector2(0.05,0.215),
+    new THREE.Vector2(0.032,0.235),
+  ];
+  const body = new THREE.Mesh(new THREE.LatheGeometry(bodyCurve, 48), bodyMat);
+  body.position.y = 0.038;
+
+  // small collar ring where the neck meets the head, for a polished, jewelry-like detail
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.033, 0.008, 12, 28), collarMat);
+  collar.rotation.x = Math.PI/2;
+  collar.position.y = 0.038 + 0.238;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.052, 32, 24), bodyMat);
+  head.position.y = 0.038 + 0.268;
+  head.scale.set(1,1.08,1);
+
+  [base, body, collar, head].forEach(m=>{ m.castShadow = true; m.receiveShadow = true; });
+  g.add(base, body, collar, head);
+  g.scale.set(1.35,1.35,1.35);
+  return g;
+}
+
+// tiles sit at y=0.03 with 0.14 height, so their top surface is at y=0.10 — pawns must rest there
+const PAWN_Y = 0.105;
+
+const players = PLAYER_DEFS.map((def,i)=>{
+  const pawn = makePawn(def.color, def.dark);
+  boardGroup.add(pawn);
+  return {...def, mesh:pawn, tileIndex:0};
+});
+
+function layoutPawnsOnTile(idx){
+  const tile = tiles[idx];
+  const spread = [[-0.28,-0.28],[0.28,-0.28],[-0.28,0.28],[0.28,0.28]];
+  players.forEach((p,i)=>{
+    if(p.tileIndex !== idx) return;
+  });
+  const onTile = players.filter(p=>p.tileIndex===idx);
+  onTile.forEach((p,i)=>{
+    const off = spread[i % spread.length];
+    p.mesh.position.set(tile.x+off[0], PAWN_Y, tile.z+off[1]);
+  });
+}
+for(let i=0;i<40;i++) layoutPawnsOnTile(i);
+players.forEach(p=>layoutPawnsOnTile(p.tileIndex));
+// place initial spread on tile 0
+players.forEach((p,i)=>{
+  const spread = [[-0.4,-0.4],[0.4,-0.4],[-0.4,0.4],[0.4,0.4]];
+  p.mesh.position.set(tiles[0].x+spread[i][0], PAWN_Y, tiles[0].z+spread[i][1]);
+});
+
+/* ============================= CAMERA CONTROLS (custom orbit) ============================= */
+
+const DEFAULT_DIST = 15.5, DEFAULT_PHI = 0.95;
+let camDist = DEFAULT_DIST, camTheta = Math.PI*0.28, camPhi = DEFAULT_PHI;
+let targetTheta = camTheta, targetDist = camDist, targetPhi = camPhi;
+const camTarget = new THREE.Vector3(0,0,0);
+const desiredTarget = new THREE.Vector3(0,0,0);
+let followPlayer = null; // when set, camera tracks this player's pawn each frame
+
+function updateCamera(){
+  if(followPlayer){
+    desiredTarget.set(followPlayer.mesh.position.x, 0.32, followPlayer.mesh.position.z);
+  }
+  camTheta += (targetTheta-camTheta)*0.08;
+  camDist += (targetDist-camDist)*0.08;
+  camPhi += (targetPhi-camPhi)*0.08;
+  camTarget.lerp(desiredTarget, followPlayer ? 0.14 : 0.08);
+  const x = camDist*Math.sin(camPhi)*Math.sin(camTheta);
+  const z = camDist*Math.sin(camPhi)*Math.cos(camTheta);
+  const y = camDist*Math.cos(camPhi);
+  camera.position.set(camTarget.x+x, camTarget.y+y, camTarget.z+z);
+  camera.lookAt(camTarget);
+}
+
+let dragging = false, lastX=0, lastY=0, autoRotate = true;
+renderer.domElement.addEventListener('pointerdown', e=>{
+  dragging = true; autoRotate = false;
+  lastX = e.clientX; lastY = e.clientY;
+});
+window.addEventListener('pointerup', ()=> dragging=false);
+window.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const dx = e.clientX-lastX;
+  targetTheta -= dx*0.006;
+  lastX = e.clientX; lastY = e.clientY;
+});
+renderer.domElement.addEventListener('wheel', e=>{
+  e.preventDefault();
+  targetDist = Math.min(28, Math.max(7, targetDist + e.deltaY*0.01));
+}, {passive:false});
+
+/* ============================= UI: PLAYERS + DICE ROLL ============================= */
+
+let activePlayer = 0;
+const playersRow = document.getElementById('players-row');
+players.forEach((p,i)=>{
+  const chip = document.createElement('div');
+  chip.className = 'player-chip'+(i===0?' active':'');
+  chip.style.background = '#'+p.color.toString(16).padStart(6,'0');
+  chip.textContent = p.name[0];
+  chip.title = p.name;
+  chip.addEventListener('click', ()=>{
+    activePlayer = i;
+    document.querySelectorAll('.player-chip').forEach((c,ci)=> c.classList.toggle('active', ci===i));
+  });
+  playersRow.appendChild(chip);
+});
+
+const diceResult = document.getElementById('dice-result');
+const rollBtn = document.getElementById('roll-btn');
+let rolling = false;
+
+function rollDice(){
+  if(rolling) return;
+  rolling = true;
+  rollBtn.disabled = true;
+  autoRotate = false;
+
+  // 1) zoom in on the die so the result is easy to read
+  followPlayer = null;
+  desiredTarget.copy(die.position);
+  targetDist = 3.6;
+  targetPhi = 0.7;
+
+  // 100% aleatorio, cada cara 1-6 con la misma probabilidad
+  const result = 1+Math.floor(Math.random()*6);
+  animateDiceRoll(result, ()=>{
+    diceResult.textContent = `${players[activePlayer].name} sacó ${result}`;
+    showBigNumber(result);
+
+    // 2) hold on the die briefly so the number registers, then follow the pawn as it walks
+    setTimeout(()=>{
+      followPlayer = players[activePlayer];
+      targetDist = 6.2;
+      targetPhi = 0.85;
+      movePawn(activePlayer, result, ()=>{
+        // 3) settle on the pawn's new tile for a moment, then return to the overview
+        setTimeout(()=>{
+          followPlayer = null;
+          desiredTarget.set(0,0,0);
+          targetDist = DEFAULT_DIST;
+          targetPhi = DEFAULT_PHI;
+          autoRotate = true;
+          rolling = false;
+          rollBtn.disabled = false;
+        }, 650);
+      });
+    }, 950);
+  });
+}
+
+function showBigNumber(n){
+  const el = document.getElementById('big-number');
+  el.textContent = n;
+  el.classList.remove('pop');
+  void el.offsetWidth; // restart animation
+  el.classList.add('pop');
+}
+
+function animateDiceRoll(result, done){
+  const tumbleDuration = 550;
+  const settleDuration = 380;
+  const start = performance.now();
+  const spinAxis = new THREE.Vector3(Math.random()-0.5, Math.random()*0.4+0.6, Math.random()-0.5).normalize();
+  let spinSpeed = 22 + Math.random()*8;
+  const spinQuat = new THREE.Quaternion();
+
+  function tumble(now){
+    const t = (now-start)/tumbleDuration;
+    if(t < 1){
+      const decay = 1-t;
+      spinQuat.setFromAxisAngle(spinAxis, spinSpeed*decay*0.016);
+      die.quaternion.multiply(spinQuat);
+      requestAnimationFrame(tumble);
+    } else {
+      settle(now);
+    }
+  }
+
+  function settle(now0){
+    const target = faceUpQuaternion(result);
+    const from = die.quaternion.clone();
+    const settleStart = performance.now();
+    function step(now){
+      const t = Math.min(1, (now-settleStart)/settleDuration);
+      const ease = t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+      die.quaternion.slerpQuaternions(from, target, ease);
+      if(t<1){ requestAnimationFrame(step); }
+      else { die.quaternion.copy(target); done(); }
+    }
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(tumble);
+}
+
+function movePawn(playerIdx, steps, done){
+  const p = players[playerIdx];
+  // fuerza siempre al menos 1 casilla de avance (nunca se queda quieta)
+  const totalSteps = Math.max(1, Math.round(steps));
+  let hopsDone = 0;
+  function stepOnce(){
+    if(hopsDone >= totalSteps){
+      p.tileIndex = ((p.tileIndex)%40+40)%40;
+      layoutTileGroup(p.tileIndex);
+      done();
+      return;
+    }
+    const nextIdx = (p.tileIndex+1)%40;
+    const to = tiles[nextIdx];
+    const startPos = p.mesh.position.clone();
+    const endPos = new THREE.Vector3(to.x, PAWN_Y, to.z);
+    const hopDuration = 340; // un poco más rápido que antes (era 480)
+    const hopGap = 50; // pausa más corta entre casilla y casilla (era 90)
+    const startT = performance.now();
+    function hop(now){
+      const t = Math.min(1,(now-startT)/hopDuration);
+      // easing suave tipo "sine" en vez del quadratic anterior
+      const ease = -(Math.cos(Math.PI*t)-1)/2;
+      p.mesh.position.lerpVectors(startPos, endPos, ease);
+      p.mesh.position.y = PAWN_Y + Math.sin(Math.PI*t)*0.22;
+      if(t<1){
+        requestAnimationFrame(hop);
+      } else {
+        p.tileIndex = nextIdx;
+        hopsDone++;
+        setTimeout(stepOnce, hopGap);
+      }
+    }
+    requestAnimationFrame(hop);
+  }
+  stepOnce();
+}
+
+// separa visualmente las fichas que comparten casilla para que nunca parezca
+// que una ficha "no se movió" por quedar tapada detrás de otra
+function layoutTileGroup(idx){
+  const onTile = players.filter(pl=>pl.tileIndex===idx);
+  if(onTile.length<=1) return;
+  const spread = [[-0.28,-0.28],[0.28,-0.28],[-0.28,0.28],[0.28,0.28]];
+  const tile = tiles[idx];
+  onTile.forEach((pl,i)=>{
+    const off = spread[i % spread.length];
+    pl.mesh.position.x = tile.x + off[0];
+    pl.mesh.position.z = tile.z + off[1];
+  });
+}
+
+/* ============================= RESIZE + LOOP ============================= */
+
+window.addEventListener('keydown', e=>{
+  if(e.key === 'f' || e.key === 'F'){
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen().catch(()=>{});
+    } else {
+      document.exitFullscreen().catch(()=>{});
+    }
+  }
+  if(e.code === 'Space' || e.key === ' '){
+    e.preventDefault(); // evita que la página haga scroll con la barra espaciadora
+    rollDice();
+  }
+});
+
+// hide the fullscreen hint, turn indicator, and dice result once fullscreen is entered
+// (works whether fullscreen was triggered by "F" or exited via Esc)
+const hintEl = document.getElementById('hint');
+const turnInfoEl = document.getElementById('turn-info');
+const diceResultEl = document.getElementById('dice-result');
+const hudEl = document.getElementById('hud');
+document.addEventListener('fullscreenchange', ()=>{
+  const isFullscreen = !!document.fullscreenElement;
+  hintEl.classList.toggle('ui-hidden', isFullscreen);
+  turnInfoEl.classList.toggle('ui-hidden', isFullscreen);
+  diceResultEl.classList.toggle('ui-hidden', isFullscreen);
+  rollBtn.classList.toggle('ui-hidden', isFullscreen);
+  hudEl.classList.toggle('ui-hidden', isFullscreen); // oculta el panel completo, no solo su contenido
+});
+
+rollBtn.addEventListener('click', rollDice);
+
+window.addEventListener('resize', ()=>{
+  const aspect = window.innerWidth/window.innerHeight;
+  camera.aspect = aspect;
+  camera.fov = fovForAspect(aspect);
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+let lastFrameTime = performance.now();
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - lastFrameTime)/1000);
+  lastFrameTime = now;
+  if(autoRotate && !dragging){
+    targetTheta += 0.0016;
+  }
+  if(!rolling) die.rotation.y += 0.0015;
+  fountains.forEach(f=>{
+    f.userData.updateWater(dt);
+    f.userData.updateShimmer(now/1000);
+  });
+  updateCamera();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{
+    const loading = document.getElementById('loading');
+    loading.style.opacity = '0';
+    setTimeout(()=> loading.style.display='none', 500);
+  }, 300);
+});
+// in case load already fired
+setTimeout(()=>{
+  const loading = document.getElementById('loading');
+  if(loading){ loading.style.opacity='0'; setTimeout(()=>loading.style.display='none',500); }
+}, 900);
+
+})();
