@@ -350,7 +350,7 @@ function makeTileTexture(space, rotationDeg){
   const size = 256;
   const c = makeCanvas(size,size);
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#f2ecd8';
+  ctx.fillStyle = '#8d8e90';
   ctx.fillRect(0,0,size,size);
 
   ctx.save();
@@ -373,7 +373,7 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = '600 13px Fredoka, sans-serif';
     ctx.fillText('S/. '+space.price, size/2, size*0.88);
   } else if(space.type === 'rail' || space.type === 'util'){
-    ctx.fillStyle = '#f2ecd8';
+    ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
     ctx.fillStyle = space.type==='rail' ? '#2b2b2b' : '#555';
     ctx.font = (space.type==='rail'?'46px':'46px') + ' serif';
@@ -385,7 +385,7 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = '600 12px Fredoka, sans-serif';
     ctx.fillText('S/. '+space.price, size/2, size*0.9);
   } else if(space.type === 'chance'){
-    ctx.fillStyle = '#f2ecd8';
+    ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
     ctx.fillStyle = '#e2231a';
     ctx.font = '80px serif';
@@ -395,7 +395,7 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = '700 15px Baloo 2, sans-serif';
     ctx.fillText('SORPRESA', size/2, size*0.86);
   } else if(space.type === 'chest'){
-    ctx.fillStyle = '#f2ecd8';
+    ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
     ctx.font = '64px serif';
     ctx.textAlign='center';
@@ -404,7 +404,7 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = '700 13px Baloo 2, sans-serif';
     wrapText(ctx, 'ARCA COMUNAL', size/2, size*0.84, size*0.85, 16);
   } else if(space.type === 'tax'){
-    ctx.fillStyle = '#f2ecd8';
+    ctx.fillStyle = '#8d8e90';
     ctx.fillRect(0,0,size,size);
     ctx.font = '60px serif';
     ctx.textAlign='center';
@@ -415,7 +415,7 @@ function makeTileTexture(space, rotationDeg){
     ctx.font = '600 12px Fredoka, sans-serif';
     ctx.fillText('S/. '+space.price, size/2, size*0.94);
   } else if(space.type === 'corner'){
-    ctx.fillStyle = '#dfe9d8';
+    ctx.fillStyle = '#7c7d7f';
     ctx.fillRect(0,0,size,size);
     ctx.fillStyle = '#241a12';
     ctx.textAlign='center';
