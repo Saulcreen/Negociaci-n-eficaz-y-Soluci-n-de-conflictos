@@ -46,7 +46,7 @@
     border-radius:20px;
     opacity:0.85;
   }
-  #hint.ui-hidden, #turn-info.ui-hidden, #dice-result.ui-hidden, #roll-btn.ui-hidden{
+  #hint.ui-hidden, #turn-info.ui-hidden, #dice-result.ui-hidden, #roll-btn.ui-hidden, #hud.ui-hidden{
     display:none;
   }
 
@@ -1259,12 +1259,14 @@ window.addEventListener('keydown', e=>{
 const hintEl = document.getElementById('hint');
 const turnInfoEl = document.getElementById('turn-info');
 const diceResultEl = document.getElementById('dice-result');
+const hudEl = document.getElementById('hud');
 document.addEventListener('fullscreenchange', ()=>{
   const isFullscreen = !!document.fullscreenElement;
   hintEl.classList.toggle('ui-hidden', isFullscreen);
   turnInfoEl.classList.toggle('ui-hidden', isFullscreen);
   diceResultEl.classList.toggle('ui-hidden', isFullscreen);
   rollBtn.classList.toggle('ui-hidden', isFullscreen);
+  hudEl.classList.toggle('ui-hidden', isFullscreen); // oculta el panel completo, no solo su contenido
 });
 
 rollBtn.addEventListener('click', rollDice);
