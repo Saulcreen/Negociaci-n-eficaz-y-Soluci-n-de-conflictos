@@ -84,10 +84,6 @@
     letter-spacing:0.5px;
     text-transform:uppercase;
   }
-  #tile-info .price{ font-size:13px; opacity:0.85; margin-top:4px;}
-  #tile-info .swatch{
-    display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:6px; vertical-align:middle; border:1px solid rgba(255,255,255,0.4);
-  }
 
   #controls-panel{display:flex; flex-direction:column; gap:10px;}
   .players-row{display:flex; gap:8px; flex-wrap:wrap;}
@@ -170,7 +166,7 @@
 
 <div id="top-bar">
   <div id="logo-badge">MONOPOLY 3D</div>
-  <div id="hint">Arrastra para girar · rueda para zoom · clic en una casilla</div>
+  <div id="hint">Arrastra para girar · rueda para zoom · "F" pantalla completa</div>
 </div>
 
 <div id="big-number">4</div>
@@ -181,10 +177,6 @@
     <div class="players-row" id="players-row"></div>
     <button id="roll-btn">🎲 Tirar los dados</button>
     <div id="dice-result"></div>
-  </div>
-  <div class="panel" id="tile-info" style="display:none;">
-    <h3 id="tile-name">—</h3>
-    <div id="tile-detail"></div>
   </div>
 </div>
 
@@ -709,23 +701,57 @@ boardGroup.add(die);
 
 function makePawn(color, dark){
   const g = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,0.05,20), new THREE.MeshStandardMaterial({color:dark, roughness:0.5}));
-  base.position.y = 0.025;
-  const bodyCurve = [];
-  bodyCurve.push(new THREE.Vector2(0.0,0));
-  bodyCurve.push(new THREE.Vector2(0.085,0.02));
-  bodyCurve.push(new THREE.Vector2(0.075,0.14));
-  bodyCurve.push(new THREE.Vector2(0.05,0.22));
-  bodyCurve.push(new THREE.Vector2(0.028,0.27));
-  const body = new THREE.Mesh(new THREE.LatheGeometry(bodyCurve, 24), new THREE.MeshStandardMaterial({color, roughness:0.4}));
-  body.position.y = 0.05;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.055,20,16), new THREE.MeshStandardMaterial({color, roughness:0.4}));
-  head.position.y = 0.34;
-  base.castShadow = body.castShadow = head.castShadow = true;
-  g.add(base, body, head);
-  g.scale.set(1.15,1.15,1.15);
+
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color, roughness:0.28, metalness:0.08, clearcoat:0.55, clearcoatRoughness:0.25
+  });
+  const darkMat = new THREE.MeshPhysicalMaterial({
+    color:dark, roughness:0.35, metalness:0.12, clearcoat:0.35, clearcoatRoughness:0.3
+  });
+  const collarMat = new THREE.MeshStandardMaterial({color:0xf4eddc, roughness:0.4, metalness:0.15});
+
+  // base disc with a soft bevel edge instead of a hard cylinder
+  const baseCurve = [
+    new THREE.Vector2(0.0,0.0),
+    new THREE.Vector2(0.115,0.0),
+    new THREE.Vector2(0.122,0.014),
+    new THREE.Vector2(0.108,0.03),
+    new THREE.Vector2(0.09,0.038),
+  ];
+  const base = new THREE.Mesh(new THREE.LatheGeometry(baseCurve, 40), darkMat);
+
+  // main body: wider foot, cinched waist, rounded belly, tapered neck — a classic pawn silhouette
+  const bodyCurve = [
+    new THREE.Vector2(0.0,0.0),
+    new THREE.Vector2(0.088,0.0),
+    new THREE.Vector2(0.082,0.02),
+    new THREE.Vector2(0.062,0.05),
+    new THREE.Vector2(0.075,0.095),
+    new THREE.Vector2(0.08,0.14),
+    new THREE.Vector2(0.068,0.185),
+    new THREE.Vector2(0.05,0.215),
+    new THREE.Vector2(0.032,0.235),
+  ];
+  const body = new THREE.Mesh(new THREE.LatheGeometry(bodyCurve, 48), bodyMat);
+  body.position.y = 0.038;
+
+  // small collar ring where the neck meets the head, for a polished, jewelry-like detail
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.033, 0.008, 12, 28), collarMat);
+  collar.rotation.x = Math.PI/2;
+  collar.position.y = 0.038 + 0.238;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.052, 32, 24), bodyMat);
+  head.position.y = 0.038 + 0.268;
+  head.scale.set(1,1.08,1);
+
+  [base, body, collar, head].forEach(m=>{ m.castShadow = true; m.receiveShadow = true; });
+  g.add(base, body, collar, head);
+  g.scale.set(1.35,1.35,1.35);
   return g;
 }
+
+// tiles sit at y=0.03 with 0.14 height, so their top surface is at y=0.10 — pawns must rest there
+const PAWN_Y = 0.105;
 
 const players = PLAYER_DEFS.map((def,i)=>{
   const pawn = makePawn(def.color, def.dark);
@@ -742,7 +768,7 @@ function layoutPawnsOnTile(idx){
   const onTile = players.filter(p=>p.tileIndex===idx);
   onTile.forEach((p,i)=>{
     const off = spread[i % spread.length];
-    p.mesh.position.set(tile.x+off[0], 0.03, tile.z+off[1]);
+    p.mesh.position.set(tile.x+off[0], PAWN_Y, tile.z+off[1]);
   });
 }
 for(let i=0;i<40;i++) layoutPawnsOnTile(i);
@@ -750,7 +776,7 @@ players.forEach(p=>layoutPawnsOnTile(p.tileIndex));
 // place initial spread on tile 0
 players.forEach((p,i)=>{
   const spread = [[-0.4,-0.4],[0.4,-0.4],[-0.4,0.4],[0.4,0.4]];
-  p.mesh.position.set(tiles[0].x+spread[i][0], 0.03, tiles[0].z+spread[i][1]);
+  p.mesh.position.set(tiles[0].x+spread[i][0], PAWN_Y, tiles[0].z+spread[i][1]);
 });
 
 /* ============================= CAMERA CONTROLS (custom orbit) ============================= */
@@ -793,37 +819,6 @@ renderer.domElement.addEventListener('wheel', e=>{
   e.preventDefault();
   targetDist = Math.min(28, Math.max(7, targetDist + e.deltaY*0.01));
 }, {passive:false});
-
-// tap-to-select tile
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-renderer.domElement.addEventListener('click', e=>{
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
-  mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
-  raycaster.setFromCamera(mouse, camera);
-  const hit = raycaster.intersectObjects(tiles.map(t=>t.mesh));
-  if(hit.length){
-    const idx = hit[0].object.userData.tileIndex;
-    showTileInfo(idx);
-  }
-});
-
-function showTileInfo(idx){
-  const space = SPACES[idx];
-  const panel = document.getElementById('tile-info');
-  const nameEl = document.getElementById('tile-name');
-  const detail = document.getElementById('tile-detail');
-  panel.style.display = 'block';
-  nameEl.textContent = space.n;
-  let html = '';
-  if(GROUP_COLORS[space.group] && space.group!=='corner'){
-    html += `<span class="swatch" style="background:${GROUP_COLORS[space.group]}"></span>`;
-  }
-  if(space.price) html += `<span class="price">Precio: S/. ${space.price}</span>`;
-  else html += `<span class="price">Casilla especial</span>`;
-  detail.innerHTML = html;
-}
 
 /* ============================= UI: PLAYERS + DICE ROLL ============================= */
 
@@ -937,7 +932,6 @@ function movePawn(playerIdx, steps, done){
     if(remaining<=0){
       p.tileIndex = ((p.tileIndex)%40+40)%40;
       layoutTileGroup(p.tileIndex);
-      showTileInfo(p.tileIndex);
       done();
       return;
     }
@@ -945,14 +939,14 @@ function movePawn(playerIdx, steps, done){
     const from = tiles[p.tileIndex];
     const to = tiles[nextIdx];
     const startPos = p.mesh.position.clone();
-    const endPos = new THREE.Vector3(to.x, 0.03, to.z);
+    const endPos = new THREE.Vector3(to.x, PAWN_Y, to.z);
     const hopDuration = 220;
     const startT = performance.now();
     function hop(now){
       const t = Math.min(1,(now-startT)/hopDuration);
       const ease = t<0.5? 2*t*t : -1+(4-2*t)*t;
       p.mesh.position.lerpVectors(startPos, endPos, ease);
-      p.mesh.position.y = 0.03 + Math.sin(Math.PI*t)*0.18;
+      p.mesh.position.y = PAWN_Y + Math.sin(Math.PI*t)*0.18;
       if(t<1) requestAnimationFrame(hop);
       else {
         p.tileIndex = nextIdx;
@@ -971,6 +965,16 @@ function layoutTileGroup(idx){
 }
 
 /* ============================= RESIZE + LOOP ============================= */
+
+window.addEventListener('keydown', e=>{
+  if(e.key === 'f' || e.key === 'F'){
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen().catch(()=>{});
+    } else {
+      document.exitFullscreen().catch(()=>{});
+    }
+  }
+});
 
 window.addEventListener('resize', ()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
