@@ -219,21 +219,31 @@
       background:rgba(20,14,10,0.55);
       opacity:0; pointer-events:none;
       transition:opacity 0.25s ease;
+      perspective:1200px; /* profundidad real para el giro 3D de la carta */
     }
     #card-overlay.card-show{
       opacity:1; pointer-events:auto;
     }
+    /* rectángulo vertical tipo naipe (proporción ~2:3), con "canto" simulado
+       apilando varias sombras desplazadas para que se vea con grosor/3D
+       y no como una tarjeta plana */
     .landing-card{
-      width:min(88vw, 340px);
-      min-height:220px;
-      border-radius:16px;
+      width:min(58vw, 240px);
+      height:min(78vh, 360px);
+      border-radius:14px;
       background:var(--accent-cream, #f2ecd8);
       border:2px solid var(--panel-border, #caa15a);
-      box-shadow:0 16px 40px rgba(0,0,0,0.5);
+      box-shadow:
+        1px 1px 0 var(--panel-border, #caa15a),
+        2px 2px 0 var(--panel-border, #caa15a),
+        3px 3px 0 var(--panel-border, #caa15a),
+        4px 4px 0 var(--panel-border, #caa15a),
+        6px 10px 26px rgba(0,0,0,0.55);
+      transform-style:preserve-3d;
       transform:scale(0.85) rotateY(90deg);
       transition:transform 0.35s ease;
       display:flex; align-items:flex-end; justify-content:center;
-      padding-bottom:16px;
+      padding-bottom:18px;
     }
     #card-overlay.card-show .landing-card{
       transform:scale(1) rotateY(0deg);
@@ -244,6 +254,10 @@
       letter-spacing:1px;
       color:var(--ink, #241a12);
       opacity:0.45;
+      transition:opacity 0.2s ease;
+    }
+    .landing-card-hint.hint-fs-hidden{
+      opacity:0;
     }
 
     #purple-screen{
@@ -262,6 +276,10 @@
       font-size:13px;
       letter-spacing:1px;
       color:rgba(255,255,255,0.55);
+      transition:opacity 0.2s ease;
+    }
+    #purple-screen-hint.hint-fs-hidden{
+      opacity:0;
     }
   `;
   document.head.appendChild(cardStyle);
@@ -295,6 +313,20 @@
     flowState = 'game';
     purpleScreen.classList.remove('purple-show');
   }
+
+  /* -------------------- Ocultar los hints "Presiona SPACE" en pantalla completa --------------------
+     En pantalla completa el juego ya oculta hint/HUD (script.js), así que estos textos de
+     ayuda de la carta y la pantalla morada siguen la misma regla: visibles en ventana
+     normal, ocultos en fullscreen. */
+  const landingHintEl = cardOverlay.querySelector('.landing-card-hint');
+  const purpleHintEl = document.getElementById('purple-screen-hint');
+  function syncCardHintsVisibility(){
+    const hide = !!document.fullscreenElement;
+    if(landingHintEl) landingHintEl.classList.toggle('hint-fs-hidden', hide);
+    if(purpleHintEl) purpleHintEl.classList.toggle('hint-fs-hidden', hide);
+  }
+  syncCardHintsVisibility();
+  document.addEventListener('fullscreenchange', syncCardHintsVisibility);
 
   /* -------------------- Detectar cuándo la ficha termina de caminar -------------------- */
   const diceResultEl = document.getElementById('dice-result');
