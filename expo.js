@@ -89,14 +89,39 @@
   if(topBar) topBar.classList.add('ui-hidden');
   if(hud) hud.classList.add('ui-hidden');
 
-  /* -------------------- Bloquear el dado (barra espaciadora) mientras se ve la intro -------------------- */
+  /* -------------------- Bloquear/gestionar la barra espaciadora según la pantalla activa --------------------
+     Un solo listener en fase de captura (se ejecuta antes que el de script.js) decide qué
+     hace SPACE según el estado actual:
+       - durante la intro: la bloquea por completo (no se puede tirar el dado)
+       - con la carta en pantalla: no tira el dado, avanza a la pantalla morada
+       - con la pantalla morada: no tira el dado, vuelve al juego
+       - en juego normal: no hace nada aquí, deja pasar el evento para que
+         script.js tire el dado como siempre */
   let introActive = true;
   window.addEventListener('keydown', function(e){
-    if(introActive && (e.code === 'Space' || e.key === ' ')){
+    if(!(e.code === 'Space' || e.key === ' ')) return;
+
+    if(introActive){
       e.stopImmediatePropagation();
       e.preventDefault();
+      return;
     }
-  }, true); // fase de captura: se ejecuta antes que el listener de script.js
+
+    if(flowState === 'card'){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      showPurpleScreen();
+      return;
+    }
+
+    if(flowState === 'purple'){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      backToGame();
+      return;
+    }
+    // flowState === 'game': no se intercepta, script.js maneja el SPACE normalmente
+  }, true);
 
   /* -------------------- Recorrido de cámara mientras se ve la intro --------------------
      En vez de solo dejar el tablero girando a la distancia por defecto, la cámara va
@@ -165,52 +190,27 @@
   });
 
   /* ============================================================
-     SISTEMA DE CARTAS — SORPRESA / ARCA COMUNAL
+     FLUJO POST-TIRADA: carta en blanco → pantalla morada → juego
      Todo vive aquí, sin tocar script.js. Como ese archivo no avisa
-     cuándo una ficha "cae" en una casilla, expo.js lo deduce solo:
-     observa el texto de resultado del dado (#dice-result) y lleva
-     su propia cuenta de en qué casilla está cada ficha, en paralelo
-     a lo que hace script.js internamente.
+     cuándo una ficha "termina de caminar" a su casilla final, expo.js
+     lo deduce solo: observa el texto de resultado del dado
+     (#dice-result) y calcula cuánto tarda movePawn() en terminar,
+     usando la misma temporización aproximada (~950ms antes de
+     empezar a caminar + ~390ms por casilla).
 
-     Los mazos (CHANCE_DECK / CHEST_DECK) están vacíos a propósito:
-     el mecanismo de robar y mostrar carta ya funciona, el contenido
-     se agrega después. Forma esperada de cada carta:
-       { title: '...', text: '...' }
+     Estados (flowState):
+       'game'   -> juego normal, SPACE tira el dado (lo maneja script.js)
+       'card'   -> carta en blanco en medio de la pantalla, SPACE avanza
+       'purple' -> pantalla completa morada (boceto), SPACE vuelve al juego
+
+     Mientras flowState !== 'game', los overlays cubren toda la pantalla
+     con pointer-events:auto, así que también bloquean clics sobre el
+     botón "Tirar dado" sin tener que tocar script.js.
      ============================================================ */
 
-  // mismo orden en que script.js crea las fichas (players-row)
-  const PLAYER_NAMES = ['Azul', 'Rojo', 'Amarillo', 'Verde'];
+  let flowState = 'game';
 
-  // únicas casillas que nos interesan para este sistema
-  const CARD_TILES = {
-    2: 'chest',  7: 'chance', 17: 'chest',
-    22: 'chance', 33: 'chest', 36: 'chance'
-  };
-
-  // posición de cada ficha, calculada en paralelo (todas arrancan en la Salida)
-  const cardPlayerTiles = PLAYER_NAMES.map(()=> 0);
-
-  const CHANCE_DECK = []; // SORPRESA — agregar cartas después
-  const CHEST_DECK  = []; // ARCA COMUNAL — agregar cartas después
-  let chanceDiscard = [];
-  let chestDiscard = [];
-
-  function drawFrom(deck, discard){
-    if(deck.length === 0){
-      if(discard.length === 0) return null; // aún no hay cartas cargadas
-      deck.push(...discard);
-      discard.length = 0;
-      for(let i=deck.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [deck[i],deck[j]] = [deck[j],deck[i]];
-      }
-    }
-    const card = deck.pop();
-    discard.push(card);
-    return card;
-  }
-
-  /* -------------------- Estilos del modal de carta -------------------- */
+  /* -------------------- Estilos: carta en blanco + pantalla morada -------------------- */
   const cardStyle = document.createElement('style');
   cardStyle.textContent = `
     #card-overlay{
@@ -223,109 +223,97 @@
     #card-overlay.card-show{
       opacity:1; pointer-events:auto;
     }
-    .game-card{
+    .landing-card{
       width:min(88vw, 340px);
       min-height:220px;
       border-radius:16px;
-      padding:26px 22px;
-      text-align:center;
-      background:var(--panel-bg, rgba(20,14,10,0.9));
+      background:var(--accent-cream, #f2ecd8);
       border:2px solid var(--panel-border, #caa15a);
       box-shadow:0 16px 40px rgba(0,0,0,0.5);
       transform:scale(0.85) rotateY(90deg);
       transition:transform 0.35s ease;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+      display:flex; align-items:flex-end; justify-content:center;
+      padding-bottom:16px;
     }
-    #card-overlay.card-show .game-card{
+    #card-overlay.card-show .landing-card{
       transform:scale(1) rotateY(0deg);
     }
-    .game-card--chance{ border-color:var(--accent-red, #d3232a); }
-    .game-card--chest{ border-color:var(--accent-blue, #1266b5); }
-    .game-card-label{
+    .landing-card-hint{
       font-family:'Fredoka', sans-serif;
-      font-size:13px; letter-spacing:2px; text-transform:uppercase;
-      color:var(--accent-yellow, #f4c430);
-    }
-    .game-card-title{
-      font-family:'Baloo 2', sans-serif;
-      font-weight:800;
-      color:var(--accent-cream, #f2ecd8);
-      font-size:20px;
-    }
-    .game-card-text{
-      font-family:'Fredoka', sans-serif;
-      color:var(--accent-cream, #f2ecd8);
-      font-size:15px;
-      opacity:0.9;
-    }
-    #card-close-btn{
-      margin-top:6px;
-      font-family:'Fredoka', sans-serif;
-      font-weight:600;
-      font-size:15px;
+      font-size:12px;
+      letter-spacing:1px;
       color:var(--ink, #241a12);
-      background:var(--accent-yellow, #f4c430);
-      border:2px solid var(--panel-border, #caa15a);
-      border-radius:24px;
-      padding:8px 26px;
-      cursor:pointer;
+      opacity:0.45;
+    }
+
+    #purple-screen{
+      position:fixed; inset:0; z-index:75;
+      background:#5b2a86;
+      display:flex; align-items:flex-end; justify-content:center;
+      padding-bottom:36px;
+      opacity:0; pointer-events:none;
+      transition:opacity 0.3s ease;
+    }
+    #purple-screen.purple-show{
+      opacity:1; pointer-events:auto;
+    }
+    #purple-screen-hint{
+      font-family:'Fredoka', sans-serif;
+      font-size:13px;
+      letter-spacing:1px;
+      color:rgba(255,255,255,0.55);
     }
   `;
   document.head.appendChild(cardStyle);
 
+  /* -------------------- Marcado: carta en blanco -------------------- */
   const cardOverlay = document.createElement('div');
   cardOverlay.id = 'card-overlay';
+  cardOverlay.innerHTML = `
+    <div class="landing-card">
+      <div class="landing-card-hint">Presiona SPACE</div>
+    </div>
+  `;
   document.body.appendChild(cardOverlay);
 
-  function showCardModal(kind, card){
-    const label = kind === 'chance' ? 'SORPRESA' : 'ARCA COMUNAL';
-    cardOverlay.innerHTML = `
-      <div class="game-card ${kind === 'chance' ? 'game-card--chance' : 'game-card--chest'}">
-        <div class="game-card-label">${label}</div>
-        ${card.title ? `<div class="game-card-title">${card.title}</div>` : ''}
-        ${card.text ? `<div class="game-card-text">${card.text}</div>` : ''}
-        <button id="card-close-btn" type="button">Cerrar</button>
-      </div>
-    `;
+  /* -------------------- Marcado: pantalla completa morada (boceto) -------------------- */
+  const purpleScreen = document.createElement('div');
+  purpleScreen.id = 'purple-screen';
+  purpleScreen.innerHTML = `<div id="purple-screen-hint">Presiona SPACE para continuar</div>`;
+  document.body.appendChild(purpleScreen);
+
+  function showLandingCard(){
+    flowState = 'card';
     cardOverlay.classList.add('card-show');
-    cardOverlay.querySelector('#card-close-btn').addEventListener('click', ()=>{
-      cardOverlay.classList.remove('card-show');
-    });
+  }
+  function showPurpleScreen(){
+    flowState = 'purple';
+    cardOverlay.classList.remove('card-show');
+    purpleScreen.classList.add('purple-show');
+  }
+  function backToGame(){
+    flowState = 'game';
+    purpleScreen.classList.remove('purple-show');
   }
 
-  function handleLanding(tileIndex){
-    const kind = CARD_TILES[tileIndex];
-    if(!kind) return;
-    const card = kind === 'chance'
-      ? drawFrom(CHANCE_DECK, chanceDiscard)
-      : drawFrom(CHEST_DECK, chestDiscard);
-    if(!card) return; // mazo todavía vacío
-    showCardModal(kind, card);
-  }
-
-  /* -------------------- Detectar movimientos observando el HUD -------------------- */
+  /* -------------------- Detectar cuándo la ficha termina de caminar -------------------- */
   const diceResultEl = document.getElementById('dice-result');
   if(diceResultEl){
-    let lastCardText = diceResultEl.textContent;
-    const cardObserver = new MutationObserver(function(){
+    let lastRollText = diceResultEl.textContent;
+    const rollObserver = new MutationObserver(function(){
       const text = diceResultEl.textContent;
-      if(text === lastCardText) return;
-      lastCardText = text;
+      if(text === lastRollText) return;
+      lastRollText = text;
       const match = text.match(/^(.+) sacó (\d+)$/);
       if(!match) return;
-      const name = match[1];
       const steps = parseInt(match[2], 10);
-      const playerIdx = PLAYER_NAMES.indexOf(name);
-      if(playerIdx === -1) return;
-      const newIndex = (cardPlayerTiles[playerIdx] + steps) % 40;
-      cardPlayerTiles[playerIdx] = newIndex;
       // misma temporización aproximada que movePawn() en script.js: ~950ms antes de
       // empezar a caminar + ~390ms por casilla, para mostrar la carta cuando la
-      // ficha realmente llega, no apenas se conoce el resultado del dado.
+      // ficha realmente termina de llegar, no apenas se conoce el resultado del dado.
       const travelDelay = 950 + steps*390 + 200;
-      setTimeout(function(){ handleLanding(newIndex); }, travelDelay);
+      setTimeout(showLandingCard, travelDelay);
     });
-    cardObserver.observe(diceResultEl, {childList:true, characterData:true, subtree:true});
+    rollObserver.observe(diceResultEl, {childList:true, characterData:true, subtree:true});
   }
 
 })();
