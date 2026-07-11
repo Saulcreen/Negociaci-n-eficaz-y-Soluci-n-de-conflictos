@@ -332,11 +332,8 @@
   const CARD_DELAY_AFTER_LANDING = 1000; // pausa extra tras llegar, antes de mostrar la carta
   const diceResultEl = document.getElementById('dice-result');
   if(diceResultEl){
-    let lastRollText = diceResultEl.textContent;
     const rollObserver = new MutationObserver(function(){
       const text = diceResultEl.textContent;
-      if(text === lastRollText) return;
-      lastRollText = text;
       const match = text.match(/^(.+) sacó (\d+)$/);
       if(!match) return;
       const steps = parseInt(match[2], 10);
@@ -345,6 +342,12 @@
       // la cámara la alcance antes del primer salto + ~390ms por casilla, para saber
       // cuándo la ficha realmente termina de llegar. Luego se suma una pausa extra
       // (CARD_DELAY_AFTER_LANDING) antes de mostrar la carta.
+      // Nota: NO se compara el texto contra la tirada anterior (antes se hacía y era
+      // el bug: si salía el mismo jugador con el mismo número dos veces seguidas, el
+      // texto quedaba idéntico y la carta no aparecía en la segunda tirada). Cada vez
+      // que script.js asigna diceResult.textContent, el navegador reemplaza el nodo de
+      // texto por completo, así que este observer siempre dispara una vez por tirada,
+      // sin importar si el resultado se repite.
       const travelDelay = 950 + 400 + steps*390 + 200;
       setTimeout(showLandingCard, travelDelay + CARD_DELAY_AFTER_LANDING);
     });
