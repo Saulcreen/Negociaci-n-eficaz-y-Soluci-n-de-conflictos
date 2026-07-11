@@ -218,7 +218,7 @@
       display:flex; align-items:center; justify-content:center;
       background:rgba(20,14,10,0.55);
       opacity:0; pointer-events:none;
-      transition:opacity 0.25s ease;
+      transition:opacity 0.4s ease;
       perspective:1200px; /* profundidad real para el giro 3D de la carta */
     }
     #card-overlay.card-show{
@@ -240,8 +240,8 @@
         4px 4px 0 var(--panel-border, #caa15a),
         6px 10px 26px rgba(0,0,0,0.55);
       transform-style:preserve-3d;
-      transform:scale(0.85) rotateY(90deg);
-      transition:transform 0.35s ease;
+      transform:scale(0.8) rotateY(140deg);
+      transition:transform 0.55s ease;
       display:flex; align-items:flex-end; justify-content:center;
       padding-bottom:18px;
     }
