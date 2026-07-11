@@ -1101,18 +1101,26 @@ function rollDice(){
       followPlayer = players[activePlayer];
       targetDist = 6.2;
       targetPhi = 0.85;
-      movePawn(activePlayer, result, ()=>{
-        // 3) settle on the pawn's new tile for a moment, then return to the overview
-        setTimeout(()=>{
-          followPlayer = null;
-          desiredTarget.set(0,0,0);
-          targetDist = DEFAULT_DIST;
-          targetPhi = DEFAULT_PHI;
-          autoRotate = true;
-          rolling = false;
-          rollBtn.disabled = false;
-        }, 650);
-      });
+      // pequeña pausa extra: deja que la cámara alcance a la ficha ANTES de que
+      // empiece a caminar. Si el primer salto ocurre en el mismo instante en que
+      // la cámara recién arranca su transición, ese primer salto casi no se nota
+      // (se ve "perdido" contra el fondo mientras la cámara todavía se está moviendo),
+      // dando la falsa sensación de que un "1" no avanza nada o que cada tirada
+      // avanza una casilla menos de la que salió en el dado.
+      setTimeout(()=>{
+        movePawn(activePlayer, result, ()=>{
+          // 3) settle on the pawn's new tile for a moment, then return to the overview
+          setTimeout(()=>{
+            followPlayer = null;
+            desiredTarget.set(0,0,0);
+            targetDist = DEFAULT_DIST;
+            targetPhi = DEFAULT_PHI;
+            autoRotate = true;
+            rolling = false;
+            rollBtn.disabled = false;
+          }, 650);
+        });
+      }, 400);
     }, 950);
   });
 }
