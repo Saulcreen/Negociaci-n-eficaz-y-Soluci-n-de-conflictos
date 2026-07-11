@@ -329,7 +329,7 @@
   document.addEventListener('fullscreenchange', syncCardHintsVisibility);
 
   /* -------------------- Detectar cuándo la ficha termina de caminar -------------------- */
-  const CARD_DELAY_AFTER_LANDING = 4000; // pausa extra tras llegar, antes de mostrar la carta
+  const CARD_DELAY_AFTER_LANDING = 3000; // pausa extra tras llegar, antes de mostrar la carta
   const diceResultEl = document.getElementById('dice-result');
   if(diceResultEl){
     let lastRollText = diceResultEl.textContent;
@@ -340,11 +340,12 @@
       const match = text.match(/^(.+) sacó (\d+)$/);
       if(!match) return;
       const steps = parseInt(match[2], 10);
-      // misma temporización aproximada que movePawn() en script.js: ~950ms antes de
-      // empezar a caminar + ~390ms por casilla, para saber cuándo la ficha realmente
-      // termina de llegar. Luego se suma una pausa extra (CARD_DELAY_AFTER_LANDING)
-      // antes de mostrar la carta, para que no aparezca "de inmediato" al tocar la casilla.
-      const travelDelay = 950 + steps*390 + 200;
+      // misma temporización aproximada que rollDice()/movePawn() en script.js: ~950ms
+      // antes de que la cámara empiece a seguir a la ficha + 400ms de espera para que
+      // la cámara la alcance antes del primer salto + ~390ms por casilla, para saber
+      // cuándo la ficha realmente termina de llegar. Luego se suma una pausa extra
+      // (CARD_DELAY_AFTER_LANDING) antes de mostrar la carta.
+      const travelDelay = 950 + 400 + steps*390 + 200;
       setTimeout(showLandingCard, travelDelay + CARD_DELAY_AFTER_LANDING);
     });
     rollObserver.observe(diceResultEl, {childList:true, characterData:true, subtree:true});
