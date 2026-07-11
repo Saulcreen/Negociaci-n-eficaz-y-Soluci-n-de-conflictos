@@ -329,7 +329,7 @@
   document.addEventListener('fullscreenchange', syncCardHintsVisibility);
 
   /* -------------------- Detectar cuándo la ficha termina de caminar -------------------- */
-  const CARD_DELAY_AFTER_LANDING = 2000; // pausa extra tras llegar, antes de mostrar la carta
+  const CARD_DELAY_AFTER_LANDING = 4000; // pausa extra tras llegar, antes de mostrar la carta
   const diceResultEl = document.getElementById('dice-result');
   if(diceResultEl){
     let lastRollText = diceResultEl.textContent;
