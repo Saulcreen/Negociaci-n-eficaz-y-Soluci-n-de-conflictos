@@ -92,7 +92,9 @@
   /* -------------------- Bloquear/gestionar la barra espaciadora según la pantalla activa --------------------
      Un solo listener en fase de captura (se ejecuta antes que el de script.js) decide qué
      hace SPACE según el estado actual:
-       - durante la intro: la bloquea por completo (no se puede tirar el dado)
+       - durante la intro: no tira el dado, activa el botón "Jugar" (útil porque en
+         pantalla completa la flecha del mouse está oculta, así que SPACE es la forma
+         de avanzar sin depender de encontrar el botón con el mouse)
        - con la carta en pantalla: no tira el dado, avanza a la pantalla de color de esa carta
        - con la pantalla de color: no tira el dado, vuelve al juego y pasa a la siguiente carta
        - en juego normal: no hace nada aquí, deja pasar el evento para que
@@ -104,6 +106,7 @@
     if(introActive){
       e.stopImmediatePropagation();
       e.preventDefault();
+      playBtn.click();
       return;
     }
 
