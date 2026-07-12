@@ -221,12 +221,22 @@
      ============================================================ */
 
   const CARD_SEQUENCE = [
-    { name: 'carta_1_morado',    color: '#5b2a86' },
-    { name: 'carta_2_verde',     color: '#2f7d3a' },
-    { name: 'carta_3_rojo',      color: '#c62828' },
+    { name: 'carta_1_morado',    color: '#5b2a86',
+      cardImage: 'assets/cartas/carta_1_morado.png',
+      screenImage: 'assets/pantallas/pantalla_1_morado.png' },
+    { name: 'carta_2_verde',     color: '#2f7d3a',
+      cardImage: 'assets/cartas/carta_2_verde.png',
+      screenImage: 'assets/pantallas/pantalla_2_verde.png' },
+    { name: 'carta_3_rojo',      color: '#c62828',
+      cardImage: 'assets/cartas/carta_3_rojo.png',
+      screenImage: 'assets/pantallas/pantalla_3_rojo.png' },
     { name: 'carta_4_amarillo',  color: '#d4a017' },
-    { name: 'carta_5_naranja',   color: '#d9720f' },
-    { name: 'carta_6_azul',      color: '#1266b5' },
+    { name: 'carta_5_naranja',   color: '#d9720f',
+      cardImage: 'assets/cartas/carta_5_naranja.png',
+      screenImage: 'assets/pantallas/pantalla_5_naranja.png' },
+    { name: 'carta_6_azul',      color: '#1266b5',
+      cardImage: 'assets/cartas/carta_6_azul.png',
+      screenImage: 'assets/pantallas/pantalla_6_azul.png' },
   ];
   let cardSeqIndex = 0; // índice de la próxima carta a mostrar (avanza tras cada ciclo completo)
 
@@ -249,7 +259,10 @@
     /* rectángulo vertical tipo naipe (proporción ~2:3), con "canto" simulado
        apilando varias sombras desplazadas para que se vea con grosor/3D
        y no como una tarjeta plana. El color de acento (--card-accent) lo
-       fija showLandingCard() según la carta que le toque en el ciclo. */
+       fija showLandingCard() según la carta que le toque en el ciclo.
+       Si la carta tiene imagen propia (cardImage), se pinta como fondo
+       cubriendo toda la carta (has-image) y se oculta la etiqueta de
+       nombre, ya que el diseño de la imagen ya lleva su propio título. */
     .landing-card{
       width:min(58vw, 240px);
       height:min(78vh, 360px);
@@ -267,9 +280,18 @@
       transition:transform 0.55s ease;
       display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
       padding-bottom:18px;
+      overflow:hidden;
+    }
+    .landing-card.has-image{
+      background-image:var(--card-image);
+      background-size:cover;
+      background-position:center;
     }
     #card-overlay.card-show .landing-card{
       transform:scale(1) rotateY(0deg);
+    }
+    .landing-card.has-image .landing-card-label{
+      display:none;
     }
     .landing-card-label{
       font-family:'Fredoka', sans-serif;
@@ -290,6 +312,13 @@
       opacity:0.45;
       transition:opacity 0.2s ease;
     }
+    .landing-card.has-image .landing-card-hint{
+      color:var(--accent-cream, #f2ecd8);
+      opacity:0.85;
+      background:rgba(20,14,10,0.5);
+      padding:4px 12px;
+      border-radius:12px;
+    }
     .landing-card-label.hint-fs-hidden,
     .landing-card-hint.hint-fs-hidden{
       opacity:0;
@@ -303,8 +332,16 @@
       opacity:0; pointer-events:none;
       transition:opacity 0.3s ease, background 0.2s ease;
     }
+    #color-screen.has-image{
+      background-image:var(--screen-image);
+      background-size:cover;
+      background-position:center;
+    }
     #color-screen.color-show{
       opacity:1; pointer-events:auto;
+    }
+    #color-screen.has-image #color-screen-label{
+      display:none;
     }
     #color-screen-label{
       font-family:'Fredoka', sans-serif;
@@ -322,6 +359,13 @@
       letter-spacing:1px;
       color:rgba(255,255,255,0.55);
       transition:opacity 0.2s ease;
+    }
+    #color-screen.has-image #color-screen-hint{
+      color:var(--accent-cream, #f2ecd8);
+      opacity:0.85;
+      background:rgba(20,14,10,0.5);
+      padding:5px 14px;
+      border-radius:14px;
     }
     #color-screen-label.hint-fs-hidden,
     #color-screen-hint.hint-fs-hidden{
@@ -357,12 +401,19 @@
   document.body.appendChild(colorScreen);
 
   const cardLabelEl = cardOverlay.querySelector('.landing-card-label');
+  const landingCardEl = cardOverlay.querySelector('.landing-card');
   const colorScreenLabelEl = document.getElementById('color-screen-label');
 
   function showLandingCard(){
     const card = CARD_SEQUENCE[cardSeqIndex];
     flowState = 'card';
     cardOverlay.style.setProperty('--card-accent', card.color);
+    if(card.cardImage){
+      cardOverlay.style.setProperty('--card-image', `url("${card.cardImage}")`);
+      landingCardEl.classList.add('has-image');
+    } else {
+      landingCardEl.classList.remove('has-image');
+    }
     if(cardLabelEl) cardLabelEl.textContent = card.name;
     cardOverlay.classList.add('card-show');
   }
@@ -371,6 +422,12 @@
     flowState = 'screen';
     cardOverlay.classList.remove('card-show');
     colorScreen.style.setProperty('--screen-color', card.color);
+    if(card.screenImage){
+      colorScreen.style.setProperty('--screen-image', `url("${card.screenImage}")`);
+      colorScreen.classList.add('has-image');
+    } else {
+      colorScreen.classList.remove('has-image');
+    }
     if(colorScreenLabelEl) colorScreenLabelEl.textContent = card.name;
     colorScreen.classList.add('color-show');
   }
