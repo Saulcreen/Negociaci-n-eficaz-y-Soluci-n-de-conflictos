@@ -238,6 +238,15 @@
       cardImage: 'assets/cartas/carta_6_azul.png',
       screenImage: 'assets/pantallas/pantalla_6_azul.png' },
   ];
+
+  // Precarga todas las imágenes de cartas/pantallas apenas arranca la página
+  // (mientras se ve la intro/recorrido de cámara hay tiempo de sobra), así el
+  // navegador ya las tiene en caché cuando le toca mostrarlas y no se nota
+  // demora ni "parpadeo" al aparecer.
+  CARD_SEQUENCE.forEach(card=>{
+    if(card.cardImage){ const img = new Image(); img.src = card.cardImage; }
+    if(card.screenImage){ const img = new Image(); img.src = card.screenImage; }
+  });
   let cardSeqIndex = 0; // índice de la próxima carta a mostrar (avanza tras cada ciclo completo)
 
   let flowState = 'game';
@@ -313,11 +322,7 @@
       transition:opacity 0.2s ease;
     }
     .landing-card.has-image .landing-card-hint{
-      color:var(--accent-cream, #f2ecd8);
-      opacity:0.85;
-      background:rgba(20,14,10,0.5);
-      padding:4px 12px;
-      border-radius:12px;
+      display:none;
     }
     .landing-card-label.hint-fs-hidden,
     .landing-card-hint.hint-fs-hidden{
@@ -361,11 +366,7 @@
       transition:opacity 0.2s ease;
     }
     #color-screen.has-image #color-screen-hint{
-      color:var(--accent-cream, #f2ecd8);
-      opacity:0.85;
-      background:rgba(20,14,10,0.5);
-      padding:5px 14px;
-      border-radius:14px;
+      display:none;
     }
     #color-screen-label.hint-fs-hidden,
     #color-screen-hint.hint-fs-hidden{
