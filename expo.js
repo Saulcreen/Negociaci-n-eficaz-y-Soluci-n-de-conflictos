@@ -75,7 +75,7 @@
   const introScreen = document.createElement('div');
   introScreen.id = 'intro-screen';
   introScreen.innerHTML = `
-    <div id="intro-badge">SENATI · Física y Química</div>
+    <div id="intro-badge">SENATI · Desarrollo personal y taller de liderazgo</div>
     <h1 id="intro-title">Negociación Eficaz y Solución de Conflictos</h1>
     <button id="play-btn" type="button">▶ Jugar</button>
   `;
