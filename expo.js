@@ -93,8 +93,8 @@
      Un solo listener en fase de captura (se ejecuta antes que el de script.js) decide qué
      hace SPACE según el estado actual:
        - durante la intro: la bloquea por completo (no se puede tirar el dado)
-       - con la carta en pantalla: no tira el dado, avanza a la pantalla morada
-       - con la pantalla morada: no tira el dado, vuelve al juego
+       - con la carta en pantalla: no tira el dado, avanza a la pantalla de color de esa carta
+       - con la pantalla de color: no tira el dado, vuelve al juego y pasa a la siguiente carta
        - en juego normal: no hace nada aquí, deja pasar el evento para que
          script.js tire el dado como siempre */
   let introActive = true;
@@ -110,11 +110,11 @@
     if(flowState === 'card'){
       e.stopImmediatePropagation();
       e.preventDefault();
-      showPurpleScreen();
+      showColorScreen();
       return;
     }
 
-    if(flowState === 'purple'){
+    if(flowState === 'screen'){
       e.stopImmediatePropagation();
       e.preventDefault();
       backToGame();
@@ -190,27 +190,46 @@
   });
 
   /* ============================================================
-     FLUJO POST-TIRADA: carta en blanco → pantalla morada → juego
+     FLUJO POST-TIRADA: carta → pantalla de color → juego
      Todo vive aquí, sin tocar script.js. Como ese archivo no avisa
      cuándo una ficha "termina de caminar" a su casilla final, expo.js
      lo deduce solo: observa el texto de resultado del dado
      (#dice-result) y calcula cuánto tarda movePawn() en terminar,
      usando la misma temporización aproximada (~950ms antes de
-     empezar a caminar + ~390ms por casilla).
+     empezar a caminar + 400ms de espera de cámara + ~390ms por casilla).
 
      Estados (flowState):
        'game'   -> juego normal, SPACE tira el dado (lo maneja script.js)
-       'card'   -> carta en blanco en medio de la pantalla, SPACE avanza
-       'purple' -> pantalla completa morada (boceto), SPACE vuelve al juego
+       'card'   -> carta en medio de la pantalla, SPACE avanza
+       'screen' -> pantalla completa del color de esa carta (boceto), SPACE vuelve al juego
 
      Mientras flowState !== 'game', los overlays cubren toda la pantalla
      con pointer-events:auto, así que también bloquean clics sobre el
      botón "Tirar dado" sin tener que tocar script.js.
+
+     SISTEMA DE 6 CARTAS EN ORDEN — CARD_SEQUENCE
+     Cada carta está ligada 1 a 1 con una pantalla de color (mismo índice
+     en el arreglo = misma pareja). Van en orden fijo (no al azar): tras
+     cada tirada sale la carta 1, luego la 2, ... hasta la 6, y vuelve a
+     empezar en la 1. Cada carta tiene un nombre en el código (campo
+     `name`) para identificarla fácilmente mientras se le agrega contenido
+     real más adelante — por ahora todas están en blanco, solo cambia el
+     color de acento de la carta y el color de la pantalla completa.
      ============================================================ */
+
+  const CARD_SEQUENCE = [
+    { name: 'carta_1_morado',    color: '#5b2a86' },
+    { name: 'carta_2_verde',     color: '#2f7d3a' },
+    { name: 'carta_3_rojo',      color: '#c62828' },
+    { name: 'carta_4_amarillo',  color: '#d4a017' },
+    { name: 'carta_5_naranja',   color: '#d9720f' },
+    { name: 'carta_6_azul',      color: '#1266b5' },
+  ];
+  let cardSeqIndex = 0; // índice de la próxima carta a mostrar (avanza tras cada ciclo completo)
 
   let flowState = 'game';
 
-  /* -------------------- Estilos: carta en blanco + pantalla morada -------------------- */
+  /* -------------------- Estilos: carta + pantalla de color -------------------- */
   const cardStyle = document.createElement('style');
   cardStyle.textContent = `
     #card-overlay{
@@ -226,27 +245,39 @@
     }
     /* rectángulo vertical tipo naipe (proporción ~2:3), con "canto" simulado
        apilando varias sombras desplazadas para que se vea con grosor/3D
-       y no como una tarjeta plana */
+       y no como una tarjeta plana. El color de acento (--card-accent) lo
+       fija showLandingCard() según la carta que le toque en el ciclo. */
     .landing-card{
       width:min(58vw, 240px);
       height:min(78vh, 360px);
       border-radius:14px;
       background:var(--accent-cream, #f2ecd8);
-      border:2px solid var(--panel-border, #caa15a);
+      border:3px solid var(--card-accent, var(--panel-border, #caa15a));
       box-shadow:
-        1px 1px 0 var(--panel-border, #caa15a),
-        2px 2px 0 var(--panel-border, #caa15a),
-        3px 3px 0 var(--panel-border, #caa15a),
-        4px 4px 0 var(--panel-border, #caa15a),
+        1px 1px 0 var(--card-accent, var(--panel-border, #caa15a)),
+        2px 2px 0 var(--card-accent, var(--panel-border, #caa15a)),
+        3px 3px 0 var(--card-accent, var(--panel-border, #caa15a)),
+        4px 4px 0 var(--card-accent, var(--panel-border, #caa15a)),
         6px 10px 26px rgba(0,0,0,0.55);
       transform-style:preserve-3d;
       transform:scale(0.8) rotateY(140deg);
       transition:transform 0.55s ease;
-      display:flex; align-items:flex-end; justify-content:center;
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
       padding-bottom:18px;
     }
     #card-overlay.card-show .landing-card{
       transform:scale(1) rotateY(0deg);
+    }
+    .landing-card-label{
+      font-family:'Fredoka', sans-serif;
+      font-size:11px;
+      letter-spacing:1px;
+      text-transform:uppercase;
+      color:var(--card-accent, var(--ink, #241a12));
+      opacity:0.7;
+      margin-bottom:auto;
+      margin-top:16px;
+      transition:opacity 0.2s ease;
     }
     .landing-card-hint{
       font-family:'Fredoka', sans-serif;
@@ -256,74 +287,103 @@
       opacity:0.45;
       transition:opacity 0.2s ease;
     }
+    .landing-card-label.hint-fs-hidden,
     .landing-card-hint.hint-fs-hidden{
       opacity:0;
     }
 
-    #purple-screen{
+    #color-screen{
       position:fixed; inset:0; z-index:75;
-      background:#5b2a86;
-      display:flex; align-items:flex-end; justify-content:center;
+      background:var(--screen-color, #5b2a86);
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
       padding-bottom:36px;
       opacity:0; pointer-events:none;
-      transition:opacity 0.3s ease;
+      transition:opacity 0.3s ease, background 0.2s ease;
     }
-    #purple-screen.purple-show{
+    #color-screen.color-show{
       opacity:1; pointer-events:auto;
     }
-    #purple-screen-hint{
+    #color-screen-label{
+      font-family:'Fredoka', sans-serif;
+      font-size:13px;
+      letter-spacing:1px;
+      text-transform:uppercase;
+      color:rgba(255,255,255,0.7);
+      margin-bottom:auto;
+      margin-top:36px;
+      transition:opacity 0.2s ease;
+    }
+    #color-screen-hint{
       font-family:'Fredoka', sans-serif;
       font-size:13px;
       letter-spacing:1px;
       color:rgba(255,255,255,0.55);
       transition:opacity 0.2s ease;
     }
-    #purple-screen-hint.hint-fs-hidden{
+    #color-screen-label.hint-fs-hidden,
+    #color-screen-hint.hint-fs-hidden{
       opacity:0;
     }
   `;
   document.head.appendChild(cardStyle);
 
-  /* -------------------- Marcado: carta en blanco -------------------- */
+  /* -------------------- Marcado: carta -------------------- */
   const cardOverlay = document.createElement('div');
   cardOverlay.id = 'card-overlay';
   cardOverlay.innerHTML = `
     <div class="landing-card">
+      <div class="landing-card-label"></div>
       <div class="landing-card-hint">Presiona SPACE</div>
     </div>
   `;
   document.body.appendChild(cardOverlay);
 
-  /* -------------------- Marcado: pantalla completa morada (boceto) -------------------- */
-  const purpleScreen = document.createElement('div');
-  purpleScreen.id = 'purple-screen';
-  purpleScreen.innerHTML = `<div id="purple-screen-hint">Presiona SPACE para continuar</div>`;
-  document.body.appendChild(purpleScreen);
+  /* -------------------- Marcado: pantalla completa de color (boceto) -------------------- */
+  const colorScreen = document.createElement('div');
+  colorScreen.id = 'color-screen';
+  colorScreen.innerHTML = `
+    <div id="color-screen-label"></div>
+    <div id="color-screen-hint">Presiona SPACE para continuar</div>
+  `;
+  document.body.appendChild(colorScreen);
+
+  const cardLabelEl = cardOverlay.querySelector('.landing-card-label');
+  const colorScreenLabelEl = document.getElementById('color-screen-label');
 
   function showLandingCard(){
+    const card = CARD_SEQUENCE[cardSeqIndex];
     flowState = 'card';
+    cardOverlay.style.setProperty('--card-accent', card.color);
+    if(cardLabelEl) cardLabelEl.textContent = card.name;
     cardOverlay.classList.add('card-show');
   }
-  function showPurpleScreen(){
-    flowState = 'purple';
+  function showColorScreen(){
+    const card = CARD_SEQUENCE[cardSeqIndex];
+    flowState = 'screen';
     cardOverlay.classList.remove('card-show');
-    purpleScreen.classList.add('purple-show');
+    colorScreen.style.setProperty('--screen-color', card.color);
+    if(colorScreenLabelEl) colorScreenLabelEl.textContent = card.name;
+    colorScreen.classList.add('color-show');
   }
   function backToGame(){
     flowState = 'game';
-    purpleScreen.classList.remove('purple-show');
+    colorScreen.classList.remove('color-show');
+    // avanza a la siguiente carta del ciclo para la próxima tirada (orden fijo, no al azar)
+    cardSeqIndex = (cardSeqIndex + 1) % CARD_SEQUENCE.length;
   }
 
-  /* -------------------- Ocultar los hints "Presiona SPACE" en pantalla completa --------------------
+  /* -------------------- Ocultar los textos de ayuda en pantalla completa --------------------
      En pantalla completa el juego ya oculta hint/HUD (script.js), así que estos textos de
-     ayuda de la carta y la pantalla morada siguen la misma regla: visibles en ventana
-     normal, ocultos en fullscreen. */
+     la carta y la pantalla de color siguen la misma regla: visibles en ventana normal,
+     ocultos en fullscreen. */
   const landingHintEl = cardOverlay.querySelector('.landing-card-hint');
-  const purpleHintEl = document.getElementById('purple-screen-hint');
+  const colorHintEl = document.getElementById('color-screen-hint');
   function syncCardHintsVisibility(){
     const hide = !!document.fullscreenElement;
     if(landingHintEl) landingHintEl.classList.toggle('hint-fs-hidden', hide);
-    if(purpleHintEl) purpleHintEl.classList.toggle('hint-fs-hidden', hide);
+    if(cardLabelEl) cardLabelEl.classList.toggle('hint-fs-hidden', hide);
+    if(colorHintEl) colorHintEl.classList.toggle('hint-fs-hidden', hide);
+    if(colorScreenLabelEl) colorScreenLabelEl.classList.toggle('hint-fs-hidden', hide);
   }
   syncCardHintsVisibility();
   document.addEventListener('fullscreenchange', syncCardHintsVisibility);
