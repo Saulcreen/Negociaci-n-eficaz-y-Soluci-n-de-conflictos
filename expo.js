@@ -324,6 +324,12 @@
     #color-screen-hint.hint-fs-hidden{
       opacity:0;
     }
+
+    /* ocultar la flecha del mouse mientras se está en pantalla completa */
+    html.fs-hide-cursor,
+    html.fs-hide-cursor *{
+      cursor:none !important;
+    }
   `;
   document.head.appendChild(cardStyle);
 
@@ -384,6 +390,8 @@
     if(cardLabelEl) cardLabelEl.classList.toggle('hint-fs-hidden', hide);
     if(colorHintEl) colorHintEl.classList.toggle('hint-fs-hidden', hide);
     if(colorScreenLabelEl) colorScreenLabelEl.classList.toggle('hint-fs-hidden', hide);
+    // ocultar la flecha del mouse en pantalla completa, mostrarla de nuevo al salir
+    document.documentElement.classList.toggle('fs-hide-cursor', hide);
   }
   syncCardHintsVisibility();
   document.addEventListener('fullscreenchange', syncCardHintsVisibility);
